@@ -4,7 +4,9 @@ const ANALYZE_STAGES = [
   { key: 'parsing_documents', label: 'Parsing Documents' },
   { key: 'fetching_figma', label: 'Fetching Figma' },
   { key: 'understanding', label: 'AI Analysis' },
+  { key: 'planning_tests', label: 'Planning Test Suite' },
   { key: 'generating_tests', label: 'Generating Test Cases' },
+  { key: 'finalizing', label: 'Finalizing Report' },
   { key: 'done', label: 'Complete' },
 ]
 
@@ -311,17 +313,21 @@ export default function App() {
   const getStageProgress = (stage) => {
     switch (stage) {
       case 'parsing_documents':
-        return { percent: 25, est: 'Est. remaining: ~45s' }
+        return { percent: 15, est: 'Est. remaining: ~2 min' }
       case 'fetching_figma':
-        return { percent: 50, est: 'Est. remaining: ~35s' }
+        return { percent: 25, est: 'Est. remaining: ~1.5 min' }
       case 'understanding':
-        return { percent: 75, est: 'Est. remaining: ~20s' }
+        return { percent: 40, est: 'Est. remaining: ~1 min' }
+      case 'planning_tests':
+        return { percent: 55, est: 'Planning test coverage...' }
       case 'generating_tests':
-        return { percent: 90, est: 'Est. remaining: ~5s' }
+        return { percent: 75, est: 'Generating per-feature...' }
+      case 'finalizing':
+        return { percent: 95, est: 'Merging & validating...' }
       case 'done':
         return { percent: 100, est: 'Wrapping up...' }
       default:
-        return { percent: 10, est: 'Est. remaining: ~60s' }
+        return { percent: 10, est: 'Est. remaining: ~3 min' }
     }
   }
 
@@ -337,6 +343,7 @@ export default function App() {
   const [expandedCases, setExpandedCases] = useState({})
   const [checkedSteps, setCheckedSteps] = useState({})
   const [caseStatuses, setCaseStatuses] = useState({})
+  const [viewFlowChart, setViewFlowChart] = useState(null)
 
   const startAnalysis = async () => {
     setSubmitting(true)
@@ -1138,7 +1145,10 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
 
                           return (
                             <div key={i} className="flow-card-monochrome">
-                              <h5>{f.name}</h5>
+                              <div className="flow-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                <h5 style={{ margin: 0 }}>{f.name}</h5>
+                                <button className="personalize-btn-monochrome" onClick={() => setViewFlowChart(chart)} style={{ padding: '4px 12px', fontSize: '12px', margin: 0, height: 'auto' }}>🔍 View Graph</button>
+                              </div>
                               <div className="flow-steps-visual-monochrome" style={{ background: '#ffffff', padding: '24px 16px', overflowX: 'auto', display: 'flex', justifyContent: 'flex-start' }}>
                                 <Mermaid chart={chart} />
                               </div>
@@ -1407,6 +1417,22 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
             </div>
             <div className="preview-modal-body">
               <FilePreviewer file={previewFile} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {viewFlowChart && (
+        <div className="preview-modal-overlay" onClick={() => setViewFlowChart(null)}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '90vw', height: '90vh', maxWidth: '1400px', display: 'flex', flexDirection: 'column' }}>
+            <div className="preview-modal-header">
+              <h3>User Flow Diagram</h3>
+              <button className="close-modal-btn" onClick={() => setViewFlowChart(null)}>✕</button>
+            </div>
+            <div className="preview-modal-body" style={{ flex: 1, padding: '40px', display: 'flex', justifyContent: 'center', alignItems: 'center', overflow: 'auto', background: '#ffffff' }}>
+              <div style={{ transform: 'scale(1.2)', transformOrigin: 'center center' }}>
+                <Mermaid chart={viewFlowChart} />
+              </div>
             </div>
           </div>
         </div>
