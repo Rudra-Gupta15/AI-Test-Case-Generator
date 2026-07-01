@@ -4,30 +4,36 @@ An AI-driven requirement-to-test-case validation system. Upload your **Business 
 
 ---
 
-## 🚀 How It Works (Two-Stage Pipeline)
+## 🚀 How It Works (Four-Stage Pipeline)
 
 ```mermaid
-graph TD
-    A[Upload Documents & Figma URL] --> B[Stage 1: AI Analysis]
-    B --> C[Generate Understanding Summary]
-    C --> D[Checkpoint: Review Features, Flows & Inconsistencies]
-    D --> E[User Feedback / Focus Prompt]
-    E --> F[Stage 2: Test Case Generation]
-    F --> G[Comprehensive Test Suite Report]
+graph LR
+    A[Upload Documents] --> B[Stage 1: AI Analysis]
+    B --> C[Stage 2: Plan Test Suite]
+    C --> D[Review Checkpoint]
+    D --> E[Stage 3: Generate Per-Feature]
+    E --> F[Stage 4: Merge & Validate]
+    F --> G[Test Suite Report]
 ```
 
-### 📋 Stage 1 — Analyze & Align
+### 📋 Stage 1 — Analyze & Understand
 1. **Document Parsing**: Extracts full text from BRD and FSD documents (`.pdf` or `.docx`).
 2. **Figma Screen Discovery**: Connects to the Figma API to fetch the canvas structure and frame/page names.
 3. **Multimodal Analysis**: Sends the combined context (BRD + FSD text + Figma structure + reference screenshots) to a local vision-capable LLM (`qwen2.5vl:7b` or `gpt-oss:120b-cloud`).
 4. **Structured Understanding**: The LLM compiles an in-app report detailing the product type, mapped features, user flows, document gaps, and inconsistencies.
 
-### 🧪 Stage 2 — Generate Test Cases
-Using the structured understanding checkpoint and an optional **Focus Prompt** (e.g. *"prioritize checkout validations"*, *"include accessibility tests"*), the AI designs a structured test suite:
+### 🗺️ Stage 2 — Plan Test Suite
+Using the structured understanding, the system creates a deterministic **Test Plan** that guarantees coverage. It assigns exact test case counts for every single feature (e.g. 3 Positive, 3 Negative, 2 Edge cases).
+
+### 🧪 Stage 3 — Generate Per-Feature
+The AI generates test cases in isolated LLM calls (one per feature). This prevents context overload and guarantees the generated test counts perfectly match the plan.
 - **Happy-path** input/action scenarios.
 - **Faulty-input** validations (boundaries, missing fields, format checks).
-- **UI/Design-matching** tests tied to Figma screens.
+- **Edge cases** & specific business rules.
 - **Baseline quality checks** (Navigation, Responsiveness, Error Handling, Accessibility).
+
+### 🔗 Stage 4 — Merge & Validate
+The per-feature results are compiled, sequentially numbered (TC-001, TC-002, etc.), validated for completeness, and presented as an interactive, editable table.
 
 ---
 
