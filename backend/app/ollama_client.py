@@ -111,7 +111,7 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
         }
     }
 
-    async with httpx.AsyncClient(timeout=240) as client:
+    async with httpx.AsyncClient(timeout=240, trust_env=False, proxies=None) as client:
         resp = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=body)
         resp.raise_for_status()
         data = resp.json()

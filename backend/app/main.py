@@ -49,9 +49,13 @@ async def analyze(
     background_tasks: BackgroundTasks,
     brd: UploadFile | None = File(None),
     fsd: UploadFile | None = File(None),
+    srs: UploadFile | None = File(None),
+    frd: UploadFile | None = File(None),
     images: list[UploadFile] = File(default=[]),
     figma_url: str | None = Form(None),
     figma_token: str | None = Form(None),
+    github_url: str | None = Form(None),
+    project_url: str | None = Form(None),
     deep: bool = Form(False),
 ):
     job_id = create_job()

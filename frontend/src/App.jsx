@@ -195,6 +195,59 @@ function Mermaid({ chart }) {
   )
 }
 
+function TreeFolder({ section, testCases, selectedView, onSelect }) {
+  const [isOpen, setIsOpen] = useState(true)
+
+  const isSelected = selectedView?.type === 'section' && selectedView?.id === section
+
+  return (
+    <div className="tree-folder">
+      <div 
+        className={`tree-folder-header ${isSelected ? 'selected' : ''}`}
+        onClick={() => {
+          setIsOpen(!isOpen)
+          onSelect('section', section)
+        }} 
+        style={{ cursor: 'pointer', userSelect: 'none' }}
+      >
+        <span 
+          className="tree-icon" 
+          style={{ 
+            transform: isOpen ? 'rotate(90deg)' : 'none', 
+            transition: 'transform 0.1s ease-out',
+            display: 'inline-block',
+            fontSize: '9px',
+            marginRight: '2px',
+            color: '#71717a'
+          }}
+        >
+          ▶
+        </span>
+        <span className="tree-icon">📁</span>
+        <span className="tree-label" title={section}>{section}</span>
+      </div>
+      {isOpen && (
+        <div className="tree-folder-children">
+          {testCases.map((tc) => {
+            const isFileSelected = selectedView?.type === 'case' && selectedView?.id === tc.id
+            return (
+              <div 
+                key={tc.id} 
+                className={`tree-file ${isFileSelected ? 'selected' : ''}`} 
+                title={tc.scenario}
+                onClick={() => onSelect('case', tc.id)}
+              >
+                <span className="tree-icon" style={{ marginLeft: '4px' }}>📄</span>
+                <span className="tree-label">{tc.scenario}</span>
+              </div>
+            )
+          })}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function App() {
   // Input states
   const [brd, setBrd] = useState(null)
@@ -202,19 +255,45 @@ export default function App() {
   const [images, setImages] = useState([])
   const [figmaUrl, setFigmaUrl] = useState('')
   const [figmaToken, setFigmaToken] = useState('')
+  const [showFigmaToken, setShowFigmaToken] = useState(false)
+  const [srs, setSrs] = useState(null)
+  const [frd, setFrd] = useState(null)
+  const [githubUrl, setGithubUrl] = useState('')
+  const [projectUrl, setProjectUrl] = useState('')
   const [deep, setDeep] = useState(false)
 
   // Job & UI states
   const [job, setJob] = useState(null)
   const [submitting, setSubmitting] = useState(false)
   const [userPrompt, setUserPrompt] = useState('')
+  const [selectedView, setSelectedView] = useState({ type: 'all', id: null })
   const [generating, setGenerating] = useState(false)
   const [step, setStep] = useState(1) // 1 = Upload, 2 = Analysis, 3 = Test Report
   const [activeTab, setActiveTab] = useState('features') // Step 2 active tab
   const [previewFile, setPreviewFile] = useState(null) // Document preview state
+  const [docPreviewHtml, setDocPreviewHtml] = useState(null)
   const [showPersonalizeModal, setShowPersonalizeModal] = useState(false)
   const [elapsedTime, setElapsedTime] = useState(0)
   const pollRef = useRef(null)
+
+  const handleCellEdit = (tcId, field, value) => {
+    setJob((prev) => {
+      if (!prev?.test_report?.test_cases) return prev
+      const newCases = prev.test_report.test_cases.map(tc => {
+        if (tc.id === tcId) {
+          return { ...tc, [field]: value }
+        }
+        return tc
+      })
+      return {
+        ...prev,
+        test_report: {
+          ...prev.test_report,
+          test_cases: newCases
+        }
+      }
+    })
+  }
 
   useEffect(() => {
     let interval
@@ -257,6 +336,7 @@ export default function App() {
   const [searchQuery, setSearchQuery] = useState('')
   const [expandedCases, setExpandedCases] = useState({})
   const [checkedSteps, setCheckedSteps] = useState({})
+  const [caseStatuses, setCaseStatuses] = useState({})
 
   const startAnalysis = async () => {
     setSubmitting(true)
@@ -265,9 +345,13 @@ export default function App() {
     const formData = new FormData()
     if (brd) formData.append('brd', brd)
     if (fsd) formData.append('fsd', fsd)
+    if (srs) formData.append('srs', srs)
+    if (frd) formData.append('frd', frd)
     images.forEach((img) => formData.append('images', img))
     if (figmaUrl) formData.append('figma_url', figmaUrl)
     if (figmaToken) formData.append('figma_token', figmaToken)
+    if (githubUrl) formData.append('github_url', githubUrl)
+    if (projectUrl) formData.append('project_url', projectUrl)
     formData.append('deep', deep)
 
     try {
@@ -406,64 +490,160 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
     alert(`Copied ${tc.id} to clipboard as Markdown!`)
   }
 
-  const exportCSV = () => {
-    const headers = [
-      'Test Case ID',
-      'Category',
-      'Test Scenario',
-      'Test Case Description',
-      'Precondition',
-      'Test Steps',
-      'Test Data',
-      'Expected Result',
-      'Actual Result',
-      'Postcondition',
-      'Status',
-      'Severity',
-      'Priority',
-      'Executed By'
-    ]
-    const rows = cases.map((tc) => [
-      tc.id,
-      tc.category || '',
-      tc.scenario || '',
-      tc.description || '',
-      tc.precondition || '',
-      tc.steps?.join('\n') || '',
-      tc.test_data || '',
-      tc.expected_result || '',
-      tc.actual_result || '',
-      tc.postcondition || '',
-      tc.status || '',
-      tc.severity || '',
-      tc.priority || '',
-      tc.executed_by || ''
-    ])
+  const exportDoc = () => {
+    const casesBySection = {}
+    cases.forEach((tc) => {
+      const sec = tc.section || 'General'
+      if (!casesBySection[sec]) {
+        casesBySection[sec] = []
+      }
+      casesBySection[sec].push(tc)
+    })
 
-    const csvContent = "data:text/csv;charset=utf-8,"
-      + [headers.join(','), ...rows.map(e => e.map(val => `"${val.replace(/"/g, '""')}"`).join(','))].join('\n')
+    const sections = Object.keys(casesBySection)
+    const subtitle = `Module: ${sections.join(' | ')}`
 
-    const encodedUri = encodeURI(csvContent)
-    const link = document.createElement("a")
-    link.setAttribute("href", encodedUri)
-    link.setAttribute("download", "test_suite.csv")
-    document.body.appendChild(link)
-    link.click()
-    document.body.removeChild(link)
+    let tablesHtml = ''
+    sections.forEach((sec, idx) => {
+      tablesHtml += `
+        <h2>Module ${idx}: ${sec}</h2>
+        <table>
+          <thead>
+            <tr>
+              <th width="5%">Test Case ID</th>
+              <th width="6%">Category</th>
+              <th width="9%">Test Scenario</th>
+              <th width="13%">Test Case Description</th>
+              <th width="8%">Precondition</th>
+              <th width="16%">Test Steps</th>
+              <th width="7%">Test Data</th>
+              <th width="12%">Expected Result</th>
+              <th width="5%">Actual Result</th>
+              <th width="6%">Postcondition</th>
+              <th width="4%">Status</th>
+              <th width="3%">Severity</th>
+              <th width="3%">Priority</th>
+              <th width="3%">Executed By</th>
+            </tr>
+          </thead>
+          <tbody>
+            ${casesBySection[sec].map(tc => `
+              <tr>
+                <td>${tc.id}</td>
+                <td>${tc.category || ''}</td>
+                <td>${tc.scenario || ''}</td>
+                <td>${tc.description || ''}</td>
+                <td>${tc.precondition || ''}</td>
+                <td>${(tc.steps || []).join('<br/>')}</td>
+                <td>${tc.test_data || ''}</td>
+                <td>${tc.expected_result || ''}</td>
+                <td>${tc.actual_result || ''}</td>
+                <td>${tc.postcondition || ''}</td>
+                <td>${tc.status || ''}</td>
+                <td>${tc.severity || ''}</td>
+                <td>${tc.priority || ''}</td>
+                <td>${tc.executed_by || ''}</td>
+              </tr>
+            `).join('')}
+          </tbody>
+        </table>
+      `
+    })
+
+    const htmlContent = `
+      <html xmlns:o='urn:schemas-microsoft-com:office:office' xmlns:w='urn:schemas-microsoft-com:office:word' xmlns='http://www.w3.org/TR/REC-html40'>
+      <head>
+        <meta charset='utf-8'>
+        <title>Test Suite</title>
+        <style>
+          @page {
+            size: 29.7cm 21cm;
+            margin: 1.5cm;
+          }
+          * {
+            font-family: Arial, sans-serif !important;
+          }
+          body {
+            font-family: Arial, sans-serif !important;
+            font-size: 9pt;
+          }
+          h1 {
+            text-align: center;
+            color: #e65c00;
+            font-size: 16pt;
+            margin-bottom: 5px;
+            font-family: Arial, sans-serif !important;
+          }
+          .subtitle {
+            text-align: center;
+            color: #555555;
+            font-size: 10pt;
+            margin-bottom: 20px;
+            font-family: Arial, sans-serif !important;
+          }
+          h2 {
+            color: #e65c00;
+            font-size: 14pt;
+            margin-top: 30px;
+            margin-bottom: 10px;
+            font-family: Arial, sans-serif !important;
+          }
+          table {
+            border-collapse: collapse;
+            width: 100%;
+            font-size: 8.5pt;
+            margin-bottom: 20px;
+            table-layout: fixed;
+          }
+          th {
+            background-color: #e65c00;
+            color: white;
+            padding: 4px;
+            text-align: left;
+            border: 1px solid #000000;
+            font-weight: bold;
+            word-wrap: break-word;
+          }
+          td {
+            padding: 4px;
+            border: 1px solid #000000;
+            vertical-align: top;
+            word-wrap: break-word;
+          }
+        </style>
+      </head>
+      <body>
+        <h1 style="font-family: Arial, sans-serif;">${job?.understanding?.product_type || "Project"} - Test Cases</h1>
+        <div class="subtitle" style="font-family: Arial, sans-serif;">${subtitle}</div>
+        ${tablesHtml.replace(/<h2>/g, '<h2 style="font-family: Arial, sans-serif;">')}
+      </body>
+      </html>
+    `;
+
+    setDocPreviewHtml(htmlContent);
+  }
+
+  const downloadDoc = () => {
+    if (!docPreviewHtml) return;
+    const blob = new Blob(['\ufeff', docPreviewHtml], {
+        type: 'application/msword'
+    });
+    
+    const downloadLink = document.createElement("a");
+    downloadLink.href = URL.createObjectURL(blob);
+    downloadLink.download = "test_suite.doc";
+    
+    document.body.appendChild(downloadLink);
+    downloadLink.click();
+    document.body.removeChild(downloadLink);
+    setDocPreviewHtml(null);
   }
 
   return (
     <div className={`app-window step-${step}`}>
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
       <div className="app-sidebar">
-        <div className="sidebar-top">
-          <div className="brand-header">
-            <span className="brand-icon">▤</span>
-            <span className="brand-name">AI QA REVIEWER</span>
-          </div>
 
-
-        </div>
 
         {/* Step-Specific Sidebar Content */}
         <div className="sidebar-middle">
@@ -552,43 +732,34 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
 
           {step === 3 && job?.test_report && (
             <div className="sidebar-report-controls">
-              <div className="sidebar-metrics-list">
-                <div className="metric-row-sidebar total">
-                  <span>Total Cases</span>
-                  <strong>{totalCount}</strong>
-                </div>
-                <div className="metric-row-sidebar p0">
-                  <span>P0 - Critical</span>
-                  <strong>{p0Count}</strong>
-                </div>
-                <div className="metric-row-sidebar p1">
-                  <span>P1 - High</span>
-                  <strong>{p1Count}</strong>
-                </div>
-                <div className="metric-row-sidebar p2">
-                  <span>P2 - Medium</span>
-                  <strong>{p2Count}</strong>
-                </div>
-                <div className="metric-row-sidebar p3">
-                  <span>P3 - Low</span>
-                  <strong>{p3Count}</strong>
-                </div>
-              </div>
+              {(() => {
+                const treeData = {}
+                job.test_report.test_cases.forEach((tc) => {
+                  const sec = tc.section || 'General'
+                  if (!treeData[sec]) treeData[sec] = []
+                  treeData[sec].push(tc)
+                })
 
-              <div className="sidebar-actions-box">
-                <button className="sidebar-btn-monochrome expand-all" onClick={() => toggleAll(true)}>
-                  Expand All
-                </button>
-                <button className="sidebar-btn-monochrome collapse-all" onClick={() => toggleAll(false)}>
-                  Collapse All
-                </button>
-                <button className="sidebar-btn-monochrome export" onClick={exportCSV}>
-                  📥 Export CSV
-                </button>
-                <button className="sidebar-btn-monochrome reset" onClick={resetApp}>
-                  🔄 Start New Project
-                </button>
-              </div>
+                return (
+                  <div className="test-explorer-tree">
+                    <div className="tree-root" onClick={() => setSelectedView({ type: 'all', id: null })} style={{ cursor: 'pointer' }}>
+                      <span className="tree-icon">📁</span>
+                      <span className="tree-label">{job.understanding?.product_type || "Test Project"}</span>
+                    </div>
+                    <div className="tree-children">
+                      {Object.keys(treeData).map((sec, idx) => (
+                        <TreeFolder 
+                          key={idx} 
+                          section={sec} 
+                          testCases={treeData[sec]} 
+                          selectedView={selectedView}
+                          onSelect={(type, id) => setSelectedView({ type, id })}
+                        />
+                      ))}
+                    </div>
+                  </div>
+                )
+              })()}
             </div>
           )}
         </div>
@@ -696,144 +867,189 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 </div>
               </div>
             ) : (
-              <div className="upload-inputs-container">
-                <div className="upload-grid">
-                  <div className="upload-box-enhanced">
-                    <label className="upload-label-title">BRD (Business Requirements Doc)</label>
-                    {brd ? (
-                      <div className="file-selected-card">
-                        <button className="remove-file-btn" onClick={() => setBrd(null)} type="button">✕</button>
-                        <div className="file-info">
-                          <span className="file-icon">📄</span>
-                          <span className="file-name-text">{brd.name}</span>
-                        </div>
-                        <button className="view-file-btn" onClick={() => setPreviewFile(brd)} type="button">
-                          👁 View Document
-                        </button>
-                      </div>
-                    ) : (
-                      <label className="drag-drop-zone">
-                        <input
-                          type="file"
-                          accept=".pdf,.docx,.doc,.txt,.md"
-                          onChange={(e) => setBrd(e.target.files[0])}
-                          className="hidden-file-input"
-                        />
-                        <span className="upload-zone-icon">📁</span>
-                        <span className="upload-zone-text">Choose BRD file</span>
-                        <span className="upload-zone-sub">PDF, DOCX, TXT, MD</span>
-                      </label>
-                    )}
+              <div className="upload-inputs-container new-sleek-design">
+                {/* SECTION 1: PROJECT DOCUMENTS */}
+                <div className="sleek-section">
+                  <div className="sleek-section-header">
+                    <h3>📄 Project Documents</h3>
+                    <p>Upload any requirements or spec documents (Optional)</p>
                   </div>
-
-                  <div className="upload-box-enhanced">
-                    <label className="upload-label-title">FSD (Functional Spec Doc)</label>
-                    {fsd ? (
-                      <div className="file-selected-card">
-                        <button className="remove-file-btn" onClick={() => setFsd(null)} type="button">✕</button>
-                        <div className="file-info">
-                          <span className="file-icon">📄</span>
-                          <span className="file-name-text">{fsd.name}</span>
-                        </div>
-                        <button className="view-file-btn" onClick={() => setPreviewFile(fsd)} type="button">
-                          👁 View Document
-                        </button>
+                  <div className="sleek-upload-list">
+                    
+                    {/* BRD */}
+                    <div className={`sleek-list-item ${brd ? 'has-file' : ''}`}>
+                      <div className="sleek-item-left">
+                        <span className="sleek-item-label">BRD (Business Requirements)</span>
                       </div>
-                    ) : (
-                      <label className="drag-drop-zone">
-                        <input
-                          type="file"
-                          accept=".pdf,.docx,.doc,.txt,.md"
-                          onChange={(e) => setFsd(e.target.files[0])}
-                          className="hidden-file-input"
-                        />
-                        <span className="upload-zone-icon">📁</span>
-                        <span className="upload-zone-text">Choose FSD file</span>
-                        <span className="upload-zone-sub">PDF, DOCX, TXT, MD</span>
-                      </label>
-                    )}
+                      <div className="sleek-item-right">
+                        {brd ? (
+                          <>
+                            <span className="sleek-filename">{brd.name}</span>
+                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(brd)}>👁</button>
+                            <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
+                          </>
+                        ) : (
+                          <label className="sleek-upload-btn">
+                            Upload
+                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* FSD */}
+                    <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`}>
+                      <div className="sleek-item-left">
+                        <span className="sleek-item-label">FSD (Functional Specs)</span>
+                      </div>
+                      <div className="sleek-item-right">
+                        {fsd ? (
+                          <>
+                            <span className="sleek-filename">{fsd.name}</span>
+                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(fsd)}>👁</button>
+                            <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
+                          </>
+                        ) : (
+                          <label className="sleek-upload-btn">
+                            Upload
+                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* SRS */}
+                    <div className={`sleek-list-item ${srs ? 'has-file' : ''}`}>
+                      <div className="sleek-item-left">
+                        <span className="sleek-item-label">SRS (Software Requirements)</span>
+                      </div>
+                      <div className="sleek-item-right">
+                        {srs ? (
+                          <>
+                            <span className="sleek-filename">{srs.name}</span>
+                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(srs)}>👁</button>
+                            <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
+                          </>
+                        ) : (
+                          <label className="sleek-upload-btn">
+                            Upload
+                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
+                    {/* FRD */}
+                    <div className={`sleek-list-item ${frd ? 'has-file' : ''}`}>
+                      <div className="sleek-item-left">
+                        <span className="sleek-item-label">FRD (Functional Requirements)</span>
+                      </div>
+                      <div className="sleek-item-right">
+                        {frd ? (
+                          <>
+                            <span className="sleek-filename">{frd.name}</span>
+                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(frd)}>👁</button>
+                            <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
+                          </>
+                        ) : (
+                          <label className="sleek-upload-btn">
+                            Upload
+                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
+                          </label>
+                        )}
+                      </div>
+                    </div>
+
                   </div>
                 </div>
 
-                <div className="upload-box-enhanced full-width">
-                  <label className="upload-label-title">Reference Figma Mockups (Optional)</label>
-                  {images.length > 0 ? (
-                    <div className="images-selected-container">
-                      <div className="images-grid-preview">
+                {/* SECTION 2: DESIGN & UI */}
+                <div className="sleek-section">
+                  <div className="sleek-section-header">
+                    <h3>🎨 Design & UI References</h3>
+                    <p>Upload mockup images or link your Figma designs (Optional)</p>
+                  </div>
+                  
+                  <div className="sleek-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0' }}>
+                      <span className="sleek-item-label">Reference Mockups (Images)</span>
+                      <label className="sleek-upload-btn">
+                        {images.length > 0 ? '+ Add More' : 'Upload Images'}
+                        <input type="file" multiple accept="image/*" onChange={(e) => setImages([...images, ...Array.from(e.target.files)])} className="hidden-file-input" />
+                      </label>
+                    </div>
+                    {images.length > 0 && (
+                      <div className="sleek-images-gallery">
                         {images.map((img, index) => (
-                          <div key={index} className="image-preview-thumbnail">
-                            <button
-                              type="button"
-                              className="remove-img-btn"
-                              onClick={() => setImages(images.filter((_, i) => i !== index))}
-                            >
-                              ✕
-                            </button>
+                          <div key={index} className="sleek-image-thumb">
+                            <button type="button" className="sleek-remove-img" onClick={() => setImages(images.filter((_, i) => i !== index))}>✕</button>
                             <ImageThumbnail file={img} />
-                            <span className="image-name-text">{img.name}</span>
                           </div>
                         ))}
                       </div>
-                      <label className="add-more-images-btn">
-                        <input
-                          type="file"
-                          multiple
-                          accept="image/*"
-                          onChange={(e) => setImages([...images, ...Array.from(e.target.files)])}
-                          className="hidden-file-input"
-                        />
-                        + Add More
-                      </label>
+                    )}
+                  </div>
+
+                  <div className="sleek-inputs-row">
+                    <div className="sleek-input-group">
+                      <label>Figma File URL</label>
+                      <div className="sleek-input-wrapper">
+                        <span className="sleek-input-icon">🎨</span>
+                        <input type="text" placeholder="https://www.figma.com/design/..." value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                      </div>
                     </div>
-                  ) : (
-                    <label className="drag-drop-zone">
-                      <input
-                        type="file"
-                        multiple
-                        accept="image/*"
-                        onChange={(e) => setImages(Array.from(e.target.files))}
-                        className="hidden-file-input"
-                      />
-                      <span className="upload-zone-icon">🖼️</span>
-                      <span className="upload-zone-text">Choose reference images</span>
-                      <span className="upload-zone-sub">PNG, JPG, WEBP (multiple allowed)</span>
-                    </label>
-                  )}
-                </div>
-
-                <div className="text-fields-grid">
-                  <div>
-                    <label className="field-label">Figma file URL</label>
-                    <input
-                      type="text"
-                      placeholder="https://www.figma.com/design/abc123/My-Project"
-                      value={figmaUrl}
-                      onChange={(e) => setFigmaUrl(e.target.value)}
-                    />
-                  </div>
-                  <div>
-                    <label className="field-label">Figma API token (optional)</label>
-                    <input
-                      type="text"
-                      placeholder="figd_..."
-                      value={figmaToken}
-                      onChange={(e) => setFigmaToken(e.target.value)}
-                    />
+                    <div className="sleek-input-group">
+                      <label>Figma API Token</label>
+                      <div className="sleek-input-wrapper">
+                        <span className="sleek-input-icon">🔑</span>
+                        <input type={showFigmaToken ? "text" : "password"} placeholder="figd_..." value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
+                        <button type="button" className="sleek-icon-btn" style={{border: 'none', background: 'transparent', width: 'auto'}} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
+                          {showFigmaToken ? '🙈' : '👁️'}
+                        </button>
+                      </div>
+                    </div>
                   </div>
                 </div>
 
-                <div className="toggle-row">
-                  <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-                  <label htmlFor="deep">Deep mode (gpt-oss:120b — slower, more thorough, text-only)</label>
+                {/* SECTION 3: EXTERNAL LINKS */}
+                <div className="sleek-section">
+                  <div className="sleek-section-header">
+                    <h3>🔗 Code & Environment</h3>
+                    <p>Link your repository and deployed application (Optional)</p>
+                  </div>
+                  <div className="sleek-inputs-row">
+                    <div className="sleek-input-group">
+                      <label>GitHub Repository URL</label>
+                      <div className="sleek-input-wrapper">
+                        <span className="sleek-input-icon">💻</span>
+                        <input type="text" placeholder="https://github.com/org/repo" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
+                      </div>
+                    </div>
+                    <div className="sleek-input-group">
+                      <label>Deployed Project URL</label>
+                      <div className="sleek-input-wrapper">
+                        <span className="sleek-input-icon">🌐</span>
+                        <input type="text" placeholder="https://my-app.vercel.app" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
+                      </div>
+                    </div>
+                  </div>
                 </div>
 
-                <button
-                  className="primary-monochrome-btn"
-                  onClick={startAnalysis}
-                  disabled={submitting || (!brd && !fsd && images.length === 0 && !figmaUrl)}
-                >
-                  {submitting ? 'Analyzing…' : 'Analyze Documents'}
-                </button>
+                {/* FOOTER ACTION */}
+                <div className="sleek-action-footer">
+                  <div className="toggle-row sleek-toggle">
+                    <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
+                    <label htmlFor="deep">Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
+                  </div>
+
+                  <button
+                    className="sleek-submit-btn"
+                    onClick={startAnalysis}
+                    disabled={submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)}
+                  >
+                    {submitting ? 'Analyzing & Generating...' : 'Analyze Documents ➔'}
+                  </button>
+                </div>
 
                 {job?.status === 'error' && <div className="error-banner" style={{ marginTop: 24 }}>{job.error}</div>}
               </div>
@@ -900,11 +1116,22 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       <div className="flows-list-monochrome">
                         {job.understanding.flows.map((f, i) => {
                           // Generate mermaid diagram string from steps
+                          let allSteps = []
+                          f.steps?.forEach(step => {
+                            if (step.includes('->')) {
+                              allSteps.push(...step.split('->').map(s => s.trim()))
+                            } else if (step.includes('→')) {
+                              allSteps.push(...step.split('→').map(s => s.trim()))
+                            } else {
+                              allSteps.push(step.trim())
+                            }
+                          })
+
                           let chart = 'graph LR\n'
-                          f.steps?.forEach((step, idx) => {
+                          allSteps.forEach((step, idx) => {
                             const cleanStep = step.replace(/"/g, '\\"')
                             chart += `  step${idx}["${cleanStep}"]\n`
-                            if (idx < f.steps.length - 1) {
+                            if (idx < allSteps.length - 1) {
                               chart += `  step${idx} --> step${idx + 1}\n`
                             }
                           })
@@ -973,14 +1200,39 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
         {/* Step 3: Test Case Suite Main Content */}
         {step === 3 && job?.test_report && (
           <div className="main-step-container">
-            <div className="main-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+            <div className="main-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', flexWrap: 'wrap', gap: '16px' }}>
               <div>
                 <h2>3. Test Case Suite</h2>
                 <p>Execute, filter, or copy your generated test plan.</p>
               </div>
-              <button className="personalize-btn-monochrome" onClick={() => setShowPersonalizeModal(true)}>
-                ✨ Personalize test-case
-              </button>
+              <div className="header-metrics-row" style={{ flex: 1 }}>
+                <div className="header-metric-badge">
+                  <span>Total</span>
+                  <strong>{totalCount}</strong>
+                </div>
+                <div className="header-metric-badge p0">
+                  <span>P0</span>
+                  <strong>{p0Count}</strong>
+                </div>
+                <div className="header-metric-badge p1">
+                  <span>P1</span>
+                  <strong>{p1Count}</strong>
+                </div>
+                <div className="header-metric-badge p2">
+                  <span>P2</span>
+                  <strong>{p2Count}</strong>
+                </div>
+                <div className="header-metric-badge p3">
+                  <span>P3</span>
+                  <strong>{p3Count}</strong>
+                </div>
+                <button className="personalize-btn-monochrome" onClick={() => setShowPersonalizeModal(true)} style={{ marginLeft: 'auto' }}>
+                  ✨ Personalize
+                </button>
+                <button className="personalize-btn-monochrome" onClick={exportDoc} style={{ background: '#f4f4f5', color: '#18181b', borderColor: '#e4e4e7' }}>
+                  📄 View as Doc
+                </button>
+              </div>
             </div>
 
             {generating ? (
@@ -1000,24 +1252,21 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                     value={searchQuery}
                     onChange={(e) => setSearchQuery(e.target.value)}
                   />
-                  <div className="filter-chips-monochrome">
-                    {categories.map((c) => (
-                      <button
-                        key={c}
-                        className={`filter-chip-btn-monochrome ${reportFilter === c ? 'active' : ''}`}
-                        onClick={() => setReportFilter(c)}
-                      >
-                        {c}
-                      </button>
-                    ))}
-                  </div>
+
                 </div>
 
-                {/* Test Cases List Grouped by Section */}
-                <div className="test-cases-list-monochrome">
+                {/* Test Cases List Grouped by Section (Table Design) */}
+                <div className="test-cases-list-table-wrapper">
                   {(() => {
                     const casesBySection = {}
-                    filteredCases.forEach((tc) => {
+                    let visibleCases = filteredCases
+                    if (selectedView.type === 'section') {
+                      visibleCases = visibleCases.filter(tc => (tc.section || 'General') === selectedView.id)
+                    } else if (selectedView.type === 'case') {
+                      visibleCases = visibleCases.filter(tc => tc.id === selectedView.id)
+                    }
+
+                    visibleCases.forEach((tc) => {
                       const sec = tc.section || 'General'
                       if (!casesBySection[sec]) {
                         casesBySection[sec] = []
@@ -1036,112 +1285,63 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                     }
 
                     return sections.map((sectionName) => (
-                      <div key={sectionName} className="test-case-section-group">
-                        <h3 className="section-group-title">{sectionName}</h3>
-                        <div className="section-cases-container" style={{ display: 'flex', flexDirection: 'column', gap: 12 }}>
-                          {casesBySection[sectionName].map((tc) => {
-                            const isExpanded = !!expandedCases[tc.id]
-                            return (
-                              <div key={tc.id} className={`test-case-card-monochrome ${tc.priority} ${isExpanded ? 'expanded' : ''}`}>
-                                {/* Card Header */}
-                                <div className="tc-header-row-monochrome" onClick={() => toggleExpand(tc.id)}>
-                                  <div className="tc-header-left-monochrome">
-                                    <span className="expand-indicator-monochrome">{isExpanded ? '▼' : '▶'}</span>
-                                    <span className="tc-id-badge-monochrome">{tc.id}</span>
-                                    <span className="tc-title-text-monochrome">{tc.scenario}</span>
-                                  </div>
-                                  <div className="tc-header-right-monochrome">
-                                    <span className={`badge-monochrome ${tc.priority}`}>{tc.priority}</span>
-                                    <span className="badge-monochrome severity">{tc.severity}</span>
-                                    <span className="badge-monochrome category">{tc.category}</span>
-                                  </div>
-                                </div>
-
-                                {/* Card Body */}
-                                {isExpanded && (
-                                  <div className="tc-body-content-monochrome">
-                                    <div className="tc-grid-layout-monochrome">
-                                      <div className="tc-body-left-monochrome">
-                                        {tc.description && (
-                                          <div className="tc-meta-item-monochrome" style={{ marginBottom: 16 }}>
-                                            <strong>Description:</strong>
-                                            <p style={{ marginTop: 4, color: 'var(--text-dark)', fontSize: '13.5px' }}>{tc.description}</p>
-                                          </div>
-                                        )}
-                                        {tc.precondition && (
-                                          <div className="tc-preconditions-box-monochrome">
-                                            <strong>Precondition:</strong>
-                                            <p>{tc.precondition}</p>
-                                          </div>
-                                        )}
-                                        {tc.steps?.length > 0 && (
-                                          <div className="tc-steps-box-monochrome">
-                                            <strong>Execution Steps:</strong>
-                                            <span className="instruction-tip-monochrome">Check steps off as you test.</span>
-                                            <ul className="tc-checklist-monochrome">
-                                              {tc.steps.map((step, stepIdx) => {
-                                                const isChecked = !!checkedSteps[`${tc.id}-${stepIdx}`]
-                                                return (
-                                                  <li
-                                                    key={stepIdx}
-                                                    className={isChecked ? 'completed' : ''}
-                                                    onClick={(e) => toggleStep(e, tc.id, stepIdx)}
-                                                  >
-                                                    <input
-                                                      type="checkbox"
-                                                      checked={isChecked}
-                                                      readOnly
-                                                    />
-                                                    <span>{step}</span>
-                                                  </li>
-                                                )
-                                              })}
-                                            </ul>
-                                          </div>
-                                        )}
-                                      </div>
-
-                                      <div className="tc-body-right-monochrome">
-                                        {tc.test_data && (
-                                          <div className="tc-data-box-monochrome">
-                                            <strong>Test Data:</strong>
-                                            <pre>{tc.test_data}</pre>
-                                          </div>
-                                        )}
-                                        {tc.expected_result && (
-                                          <div className="tc-expected-box-monochrome">
-                                            <strong>Expected Result:</strong>
-                                            <p>{tc.expected_result}</p>
-                                          </div>
-                                        )}
-                                        {tc.postcondition && (
-                                          <div className="tc-expected-box-monochrome" style={{ marginTop: 12 }}>
-                                            <strong>Postcondition:</strong>
-                                            <p>{tc.postcondition}</p>
-                                          </div>
-                                        )}
-
-                                        <div className="tc-execution-fields-monochrome" style={{ marginTop: 16, display: 'grid', gridTemplateColumns: '1fr 1fr', gap: 8 }}>
-                                          <div>
-                                            <strong style={{ fontSize: '11px', color: 'var(--text-dim-dark)' }}>Status</strong>
-                                            <input type="text" placeholder="Pass/Fail" style={{ padding: '6px 8px', fontSize: '12px', marginTop: 4, width: '100%', border: '1px solid var(--border-light)', borderRadius: '4px' }} />
-                                          </div>
-                                          <div>
-                                            <strong style={{ fontSize: '11px', color: 'var(--text-dim-dark)' }}>Executed By</strong>
-                                            <input type="text" placeholder="Tester Name" style={{ padding: '6px 8px', fontSize: '12px', marginTop: 4, width: '100%', border: '1px solid var(--border-light)', borderRadius: '4px' }} />
-                                          </div>
-                                        </div>
-
-                                        <button className="copy-md-btn-monochrome" onClick={(e) => copyMarkdown(e, tc)} style={{ marginTop: 16 }}>
-                                          📋 Copy Markdown
-                                        </button>
-                                      </div>
-                                    </div>
-                                  </div>
-                                )}
-                              </div>
-                            )
-                          })}
+                      <div key={sectionName} className="test-case-table-section">
+                        <h3 className="section-group-title-orange">{sectionName}</h3>
+                        <div className="test-suite-table-container">
+                          <table className="test-suite-table">
+                            <thead>
+                              <tr>
+                                <th style={{ minWidth: '100px' }}>Test Case ID</th>
+                                <th style={{ minWidth: '120px' }}>Category</th>
+                                <th style={{ minWidth: '180px' }}>Test Scenario</th>
+                                <th style={{ minWidth: '250px' }}>Test Case Description</th>
+                                <th style={{ minWidth: '150px' }}>Precondition</th>
+                                <th style={{ minWidth: '300px' }}>Test Steps</th>
+                                <th style={{ minWidth: '150px' }}>Test Data</th>
+                                <th style={{ minWidth: '250px' }}>Expected Result</th>
+                                <th style={{ minWidth: '200px' }}>Actual Result</th>
+                                <th style={{ minWidth: '150px' }}>Postcondition</th>
+                                <th style={{ minWidth: '120px' }}>Status</th>
+                                <th style={{ minWidth: '100px' }}>Severity</th>
+                                <th style={{ minWidth: '100px' }}>Priority</th>
+                                <th style={{ minWidth: '120px' }}>Executed By</th>
+                              </tr>
+                            </thead>
+                            <tbody>
+                              {casesBySection[sectionName].map((tc) => (
+                                <tr key={tc.id}>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)} style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{tc.id}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{tc.category}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{tc.scenario}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'description', e.target.innerText)}>{tc.description}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'precondition', e.target.innerText)}>{tc.precondition || 'N/A'}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} style={{ whiteSpace: 'pre-wrap' }} onBlur={(e) => {
+                                    const text = e.target.innerText.trim();
+                                    handleCellEdit(tc.id, 'steps', text ? text.split('\n') : [])
+                                  }}>
+                                    {tc.steps?.length > 0 ? tc.steps.join('\n') : 'N/A'}
+                                  </td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{tc.test_data || 'N/A'}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{tc.expected_result || 'N/A'}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{tc.actual_result || 'N/A'}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{tc.postcondition || 'N/A'}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)} style={{
+                                    fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
+                                    color:
+                                      tc.status === 'Pass' ? '#16a34a' :
+                                      tc.status === 'Fail' ? '#dc2626' :
+                                      tc.status === 'Blocked' ? '#ca8a04' :
+                                      tc.status === 'Skipped' ? '#6b7280' : 'inherit'
+                                  }}>
+                                    {tc.status || 'N/A'}
+                                  </td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'severity', e.target.innerText)} className={`severity-${tc.severity?.toLowerCase()}`}>{tc.severity}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'priority', e.target.innerText)}>{tc.priority}</td>
+                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'executed_by', e.target.innerText)}>{tc.executed_by || 'N/A'}</td>
+                                </tr>
+                              ))}
+                            </tbody>
+                          </table>
                         </div>
                       </div>
                     ))
@@ -1207,6 +1407,29 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
             </div>
             <div className="preview-modal-body">
               <FilePreviewer file={previewFile} />
+            </div>
+          </div>
+        </div>
+      )}
+
+      {docPreviewHtml && (
+        <div className="preview-modal-overlay" onClick={() => setDocPreviewHtml(null)}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '90%', maxWidth: '1200px', height: '90vh' }}>
+            <div className="preview-modal-header">
+              <h3>Document Preview</h3>
+              <div style={{ display: 'flex', gap: '10px' }}>
+                <button className="primary-monochrome-btn" onClick={downloadDoc} style={{ padding: '6px 16px', margin: 0 }}>
+                  📥 Download .doc
+                </button>
+                <button className="close-modal-btn" onClick={() => setDocPreviewHtml(null)}>✕</button>
+              </div>
+            </div>
+            <div className="preview-modal-body" style={{ padding: 0, height: 'calc(100% - 60px)', background: '#fff' }}>
+              <iframe 
+                srcDoc={docPreviewHtml} 
+                style={{ width: '100%', height: '100%', border: 'none' }}
+                title="Document Preview"
+              />
             </div>
           </div>
         </div>
