@@ -275,6 +275,8 @@ export default function App() {
   const [previewFile, setPreviewFile] = useState(null) // Document preview state
   const [docPreviewHtml, setDocPreviewHtml] = useState(null)
   const [showPersonalizeModal, setShowPersonalizeModal] = useState(false)
+  const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
+  const [createProjectName, setCreateProjectName] = useState('')
   const [elapsedTime, setElapsedTime] = useState(0)
   const pollRef = useRef(null)
 
@@ -427,7 +429,8 @@ export default function App() {
       const response = await fetch(`/api/projects/${id}`)
       if (response.ok) {
         const data = await response.json()
-        setJob(data)
+        const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
+        setJob({ ...data, name: pName, id })
         setStep(3)
       } else {
         alert("Failed to load project")
@@ -722,6 +725,31 @@ export default function App() {
     setStep(1)
   }
 
+  const handleCreateProject = async () => {
+    if (!createProjectName.trim()) return;
+    try {
+      const response = await fetch('/api/projects/empty', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: createProjectName.trim() })
+      });
+      if (response.ok) {
+        const data = await response.json();
+        resetApp();
+        setJob({ id: data.id, name: createProjectName.trim(), status: 'done', stage: 'done' });
+        setShowCreateProjectModal(false);
+        setCreateProjectName('');
+        setStep(1);
+        // Fetch projects to update sidebar immediately
+        fetchProjects();
+      } else {
+        alert("Failed to create project");
+      }
+    } catch (e) {
+      alert("Error: " + e.message);
+    }
+  };
+
   // Helper calculations
   const stageIndex = job ? ANALYZE_STAGES.findIndex((s) => s.key === job.stage) : -1
   const showAnalyzeRail = submitting && job && !job.understanding
@@ -958,7 +986,30 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
           onMouseOut={(e) => e.target.style.background = 'transparent'}
         />
 
+        {/* Sidebar Brand Header */}
+        {step !== 3 && (
+          <div style={{ padding: '0', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', width: '100%', marginTop: '-16px', marginLeft: '-12px' }}>
+            <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '200px', height: 'auto', objectFit: 'contain' }} />
+          </div>
+        )}
+
         {/* Step-Specific Sidebar Content */}
+        {/* Active Project Indicator */}
+        {job?.name && (
+          <div style={{ padding: step === 3 ? '0' : '24px 0 0 0', marginTop: step === 3 ? '-16px' : '0' }}>
+            <div className="active-project-card">
+              <div style={{ position: 'relative', width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                <div className="pulse-ring"></div>
+                <div className="active-project-dot"></div>
+              </div>
+              <div style={{ overflow: 'hidden', zIndex: 1 }}>
+                <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', fontWeight: '600', marginBottom: '4px' }}>Active Workspace</div>
+                <div style={{ fontSize: '15px', color: '#ffffff', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.2px' }}>{job.name}</div>
+              </div>
+            </div>
+          </div>
+        )}
+
         <div className="sidebar-middle">
           {step === 1 && (
             <div className="sidebar-hero-content">
@@ -1151,16 +1202,13 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
         {/* Floating Capsule Navbar */}
         <div className="floating-navbar-container">
           <div className="floating-navbar">
-            <div className="nav-brand">
-              <div className="nav-logo-circle">
-                <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" style={{ color: '#111113' }}>
-                  <rect x="4" y="4" width="16" height="16" rx="1" />
-                  <line x1="8" y1="9" x2="16" y2="9" />
-                  <line x1="8" y1="13" x2="16" y2="13" />
-                  <line x1="8" y1="17" x2="16" y2="17" />
+            <div className="nav-brand" style={{ gap: '10px' }}>
+              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' }}>
+                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
+                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
                 </svg>
               </div>
-              <span className="nav-brand-name">AI QA REVIEWER</span>
+              <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
             <div className="nav-links">
               <button
@@ -1196,8 +1244,8 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 History
               </button>
             </div>
-            <button className="nav-email-btn" onClick={resetApp}>
-              New Project
+            <button className="nav-email-btn" onClick={() => setShowCreateProjectModal(true)}>
+              Create Project
             </button>
           </div>
         </div>
@@ -1255,7 +1303,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 {/* SECTION 1: PROJECT DOCUMENTS */}
                 <div className="sleek-section">
                   <div className="sleek-section-header">
-                    <h3>📄 Project Documents</h3>
+                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>📄</span> Project Documents</h3>
                     <p>Upload any requirements or spec documents (Optional)</p>
                   </div>
                   <div className="sleek-upload-list">
@@ -1350,7 +1398,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 {/* SECTION 2: DESIGN & UI */}
                 <div className="sleek-section">
                   <div className="sleek-section-header">
-                    <h3>🎨 Design & UI References</h3>
+                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🎨</span> Design & UI References</h3>
                     <p>Upload mockup images or link your Figma designs (Optional)</p>
                   </div>
                   
@@ -1398,7 +1446,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 {/* SECTION 3: EXTERNAL LINKS */}
                 <div className="sleek-section">
                   <div className="sleek-section-header">
-                    <h3>🔗 Code & Environment</h3>
+                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🔗</span> Code & Environment</h3>
                     <p>Link your repository and deployed application (Optional)</p>
                   </div>
                   <div className="sleek-inputs-row">
@@ -2059,6 +2107,54 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 >
                   {isAiEditing ? <span className="spinner-small"></span> : '🪄'}
                   {isAiEditing ? 'Applying...' : 'Apply Changes'}
+                </button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Create Project Modal */}
+      {showCreateProjectModal && (
+        <div className="preview-modal-overlay" onClick={() => setShowCreateProjectModal(false)}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '450px', height: 'auto' }}>
+            <div className="preview-modal-header">
+              <h3>Create New Project</h3>
+              <button className="close-modal-btn" onClick={() => setShowCreateProjectModal(false)}>✕</button>
+            </div>
+            <div className="preview-modal-body" style={{ padding: '24px' }}>
+              <p style={{ fontSize: '14px', color: '#475569', marginBottom: '20px', lineHeight: '1.6' }}>
+                Enter a name for your new project. An empty project workspace will be created and saved to your history.
+              </p>
+              <div style={{ marginBottom: '20px' }}>
+                <label style={{ display: 'block', fontSize: '13px', color: '#334155', marginBottom: '8px', fontWeight: '600' }}>Project Name</label>
+                <input 
+                  type="text" 
+                  placeholder="e.g. Authentication Module" 
+                  value={createProjectName} 
+                  onChange={(e) => setCreateProjectName(e.target.value)} 
+                  onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
+                  autoFocus
+                  style={{ width: '100%', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '12px', fontSize: '14px', color: '#1e293b', outline: 'none', transition: 'border-color 0.2s' }}
+                  onFocus={(e) => e.target.style.borderColor = '#3b82f6'}
+                  onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+                <button 
+                  onClick={() => setShowCreateProjectModal(false)} 
+                  style={{ padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  onMouseOver={(e) => {e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155'}}
+                  onMouseOut={(e) => {e.target.style.background = 'transparent'; e.target.style.color = '#64748b'}}
+                >
+                  Cancel
+                </button>
+                <button 
+                  onClick={handleCreateProject}
+                  disabled={!createProjectName.trim()}
+                  style={{ padding: '8px 20px', background: !createProjectName.trim() ? '#94a3b8' : '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: !createProjectName.trim() ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', boxShadow: !createProjectName.trim() ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.3)' }}
+                >
+                  Create & Start
                 </button>
               </div>
             </div>

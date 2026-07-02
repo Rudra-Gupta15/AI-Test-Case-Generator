@@ -1,5 +1,5 @@
 :root {
-  --bg-dark: #111113;
+  --bg-dark: #000000;
   --bg-light: #ffffff;
   --panel-dark: #1a1a1d;
   --panel-light: #fcfcfd;
@@ -444,8 +444,8 @@ body {
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-bottom: 32px;
-  margin-top: 0;
+  margin-bottom: 16px;
+  margin-top: -12px;
   flex-shrink: 0;
 }
 
@@ -2447,15 +2447,25 @@ input[type="text"]:focus {
   gap: 16px;
 }
 
-.sleek-section-header h3 {
-  font-size: 18px;
-  font-weight: 700;
-  color: var(--text-dark);
+.sleek-section-header {
+  border-bottom: 1px solid var(--border-light);
+  padding-bottom: 10px;
   margin-bottom: 4px;
 }
 
+.sleek-section-header h3 {
+  font-size: 20px;
+  font-weight: 850;
+  color: var(--text-dark);
+  margin-bottom: 6px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  letter-spacing: -0.01em;
+}
+
 .sleek-section-header p {
-  font-size: 14px;
+  font-size: 13.5px;
   color: var(--text-dim-dark);
 }
 
@@ -2717,4 +2727,69 @@ input[type="text"]:focus {
 
 .float-anim {
   animation: floatAnim 4s ease-in-out infinite;
+}
+
+/* Active Project Indicator Premium Styles */
+.active-project-card {
+  position: relative;
+  width: 100%;
+  box-sizing: border-box;
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.08) 0%, rgba(5, 150, 105, 0.03) 100%);
+  border: 1px solid rgba(16, 185, 129, 0.15);
+  padding: 16px 20px;
+  border-radius: 12px;
+  display: flex;
+  align-items: center;
+  gap: 16px;
+  backdrop-filter: blur(10px);
+  box-shadow: 0 4px 20px rgba(0, 0, 0, 0.1), inset 0 1px 0 rgba(255, 255, 255, 0.05);
+  transition: all 0.3s cubic-bezier(0.4, 0, 0.2, 1);
+  cursor: default;
+  overflow: hidden;
+}
+
+.active-project-card::before {
+  content: '';
+  position: absolute;
+  top: 0; left: 0; right: 0; bottom: 0;
+  background: radial-gradient(circle at 10% 50%, rgba(16, 185, 129, 0.1), transparent 50%);
+  z-index: 0;
+}
+
+.active-project-card:hover {
+  border-color: rgba(16, 185, 129, 0.3);
+  background: linear-gradient(145deg, rgba(16, 185, 129, 0.12) 0%, rgba(5, 150, 105, 0.05) 100%);
+  box-shadow: 0 8px 24px rgba(0, 0, 0, 0.15), inset 0 1px 0 rgba(255, 255, 255, 0.08);
+  transform: translateY(-1px);
+}
+
+.active-project-dot {
+  position: relative;
+  width: 10px;
+  height: 10px;
+  border-radius: 50%;
+  background: #10b981;
+  box-shadow: 0 0 12px rgba(16, 185, 129, 0.8), 0 0 20px rgba(16, 185, 129, 0.4);
+  z-index: 2;
+}
+
+.pulse-ring {
+  position: absolute;
+  width: 30px;
+  height: 30px;
+  border-radius: 50%;
+  background: rgba(16, 185, 129, 0.4);
+  z-index: 1;
+  animation: pulse-ring-anim 2.5s cubic-bezier(0.215, 0.61, 0.355, 1) infinite;
+}
+
+@keyframes pulse-ring-anim {
+  0% {
+    transform: scale(0.3);
+    opacity: 0.8;
+  }
+  80%, 100% {
+    opacity: 0;
+    transform: scale(1.5);
+  }
 }

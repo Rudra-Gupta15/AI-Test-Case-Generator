@@ -178,21 +178,51 @@ async def edit_test_case_api(req: TestCaseEditRequest):
 class SaveProjectRequest(BaseModel):
     job_id: str
 
+class CreateEmptyProjectRequest(BaseModel):
+    name: str
+
+@app.post("/api/projects/empty")
+async def create_empty_project(req: CreateEmptyProjectRequest, db: Session = Depends(get_db)):
+    from app.jobs import JOBS
+    project = Project(name=req.name, product_type=req.name)
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    
+    # Sync into memory immediately so work can begin
+    JOBS[project.id] = {
+        "id": project.id,
+        "name": project.name,
+        "status": "done",
+        "stage": "done",
+        "understanding": None,
+        "test_report": None
+    }
+    return {"id": project.id, "name": project.name, "message": "Empty project created"}
+
 @app.post("/api/projects")
 async def save_project(req: SaveProjectRequest, db: Session = Depends(get_db)):
     job = get_job(req.job_id)
-    if not job or not job.get("test_report"):
-        raise HTTPException(400, "Job not found or not completed")
+    if not job:
+        raise HTTPException(400, "Job not found")
     
-    product_type = job.get("understanding", {}).get("product_type", "Unnamed Project")
+    product_type = job.get("understanding", {}).get("product_type", "Unnamed Project") if job.get("understanding") else "Unnamed Project"
     
-    project = Project(
-        name=product_type,
-        product_type=product_type,
-        understanding=job.get("understanding"),
-        test_report=job.get("test_report")
-    )
-    db.add(project)
+    # Upsert if it exists in DB
+    existing_project = db.query(Project).filter(Project.id == req.job_id).first()
+    if existing_project:
+        existing_project.understanding = job.get("understanding")
+        existing_project.test_report = job.get("test_report")
+        project = existing_project
+    else:
+        project = Project(
+            name=product_type,
+            product_type=product_type,
+            understanding=job.get("understanding"),
+            test_report=job.get("test_report")
+        )
+        db.add(project)
+    
     db.commit()
     db.refresh(project)
     return {"id": project.id, "message": "Project saved successfully"}
@@ -218,14 +248,20 @@ async def get_project(project_id: str, db: Session = Depends(get_db)):
     if not project:
         raise HTTPException(404, "Project not found")
     
-    return {
+    # Sync to memory so AI can execute tests or modify it
+    from app.jobs import JOBS
+    job_data = {
         "id": project.id,
+        "name": project.name,
         "status": "done",
         "stage": "done",
         "notepad": project.notepad,
         "understanding": project.understanding,
         "test_report": project.test_report
     }
+    JOBS[project.id] = job_data
+    
+    return job_data
 
 class UpdateProjectRequest(BaseModel):
     name: str
