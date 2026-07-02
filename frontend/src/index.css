@@ -2677,3 +2677,32 @@ input[type="text"]:focus {
   align-self: flex-start;
   margin-top: 0;
 }
+
+@keyframes spinSlow {
+  from { transform: rotate(0deg); }
+  to { transform: rotate(360deg); }
+}
+
+@keyframes spinSlowReverse {
+  from { transform: rotate(360deg); }
+  to { transform: rotate(0deg); }
+}
+
+@keyframes floatAnim {
+  0%, 100% { transform: translateY(0); opacity: 0.5; }
+  50% { transform: translateY(-10px); opacity: 1; }
+}
+
+.spin-slow {
+  animation: spinSlow 20s linear infinite;
+  transform-origin: 100px 100px;
+}
+
+.spin-slow-reverse {
+  animation: spinSlowReverse 15s linear infinite;
+  transform-origin: 100px 100px;
+}
+
+.float-anim {
+  animation: floatAnim 4s ease-in-out infinite;
+}

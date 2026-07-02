@@ -1,13 +1,18 @@
 import os
 import shutil
-from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Form
+from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
+from sqlalchemy.orm import Session
 
 from app.config import JOBS_DIR, UPLOADS_DIR, FIGMA_TOKEN
 from app.jobs import create_job, get_job, update_job
 from app.pipeline import run_analysis, run_test_generation
 from app import doc_parser
+from app.database import engine, Base, get_db
+from app.models import Project
+
+Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="QA Document Verifier")
 
@@ -115,3 +120,79 @@ async def generate_tests(req: GenerateRequest, background_tasks: BackgroundTasks
         run_test_generation, req.job_id, job["understanding"], req.user_prompt, req.deep
     )
     return {"job_id": req.job_id}
+
+
+class SaveProjectRequest(BaseModel):
+    job_id: str
+
+@app.post("/api/projects")
+async def save_project(req: SaveProjectRequest, db: Session = Depends(get_db)):
+    job = get_job(req.job_id)
+    if not job or not job.get("test_report"):
+        raise HTTPException(400, "Job not found or not completed")
+    
+    product_type = job.get("understanding", {}).get("product_type", "Unnamed Project")
+    
+    project = Project(
+        name=product_type,
+        product_type=product_type,
+        understanding=job.get("understanding"),
+        test_report=job.get("test_report")
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return {"id": project.id, "message": "Project saved successfully"}
+
+@app.get("/api/projects")
+async def list_projects(db: Session = Depends(get_db)):
+    projects = db.query(Project).order_by(Project.created_at.desc()).all()
+    return [
+        {
+            "id": p.id,
+            "name": p.name,
+            "product_type": p.product_type,
+            "created_at": p.created_at,
+            "notepad": p.notepad,
+            "total_cases": len(p.test_report.get("test_cases", [])) if p.test_report else 0
+        }
+        for p in projects
+    ]
+
+@app.get("/api/projects/{project_id}")
+async def get_project(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    
+    return {
+        "id": project.id,
+        "status": "done",
+        "stage": "done",
+        "notepad": project.notepad,
+        "understanding": project.understanding,
+        "test_report": project.test_report
+    }
+
+class UpdateProjectRequest(BaseModel):
+    name: str
+    notepad: str
+
+@app.put("/api/projects/{project_id}")
+async def update_project(project_id: str, req: UpdateProjectRequest, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    project.name = req.name
+    project.notepad = req.notepad
+    db.commit()
+    return {"message": "Project updated successfully"}
+
+@app.delete("/api/projects/{project_id}")
+async def delete_project(project_id: str, db: Session = Depends(get_db)):
+    project = db.query(Project).filter(Project.id == project_id).first()
+    if not project:
+        raise HTTPException(404, "Project not found")
+    db.delete(project)
+    db.commit()
+    return {"message": "Project deleted successfully"}

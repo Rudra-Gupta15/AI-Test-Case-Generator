@@ -20,8 +20,8 @@ You will receive:
 
 Your job: read everything and produce a structured understanding summary. Identify:
 1. Product type and one-line purpose
-2. Core features (list, each tied to its source: BRD/FSD/Figma/Image)
-3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation")
+2. Core features (list, each tied to its source: BRD/FSD/Figma/Image). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
+3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation"). CRITICAL: List ALL user flows comprehensively.
 4. Inconsistencies or contradictions BETWEEN the documents (e.g. BRD mentions a feature with no FSD detail, or FSD describes a screen Figma doesn't have)
 5. Gaps — anything mentioned in one document but missing detail in another
 

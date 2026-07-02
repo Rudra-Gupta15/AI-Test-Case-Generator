@@ -70,29 +70,43 @@ async def run_analysis(job_id: str, brd_path: str | None, fsd_path: str | None,
 
         all_test_cases = []
 
-        # 3a: Feature-specific test cases (one call per feature)
+        # 3a: Feature-specific test cases (concurrent)
         feature_plans = plan.get("plan", [])
-        for i, feature_plan in enumerate(feature_plans):
+        total_features = len(feature_plans)
+        completed_features = 0
+        sem = asyncio.Semaphore(5)
+
+        async def generate_feature_with_progress(fp):
+            nonlocal completed_features
+            async with sem:
+                cases = await ollama_client.generate_feature_test_cases(product_context, fp, deep=deep)
+            completed_features += 1
             update_job(
                 job_id,
                 stage="generating_tests",
                 generation_progress={
-                    "current": i + 1,
-                    "total": len(feature_plans),
-                    "feature": feature_plan.get("feature_name", "Unknown"),
+                    "current": completed_features,
+                    "total": total_features,
+                    "feature": fp.get("feature_name", "Unknown"),
                 }
             )
-            cases = await ollama_client.generate_feature_test_cases(
-                product_context, feature_plan, deep=deep
-            )
+            return cases
+
+        feature_tasks = [generate_feature_with_progress(fp) for fp in feature_plans]
+        feature_results = await asyncio.gather(*feature_tasks)
+        for cases in feature_results:
             all_test_cases.extend(cases)
 
-        # 3b: Baseline test cases (one call per baseline category)
+        # 3b: Baseline test cases (concurrent)
         baseline_plans = plan.get("baseline", [])
-        for baseline_item in baseline_plans:
-            cases = await ollama_client.generate_baseline_test_cases(
-                product_context, baseline_item, deep=deep
-            )
+        
+        async def generate_baseline_with_sem(bp):
+            async with sem:
+                return await ollama_client.generate_baseline_test_cases(product_context, bp, deep=deep)
+                
+        baseline_tasks = [generate_baseline_with_sem(bp) for bp in baseline_plans]
+        baseline_results = await asyncio.gather(*baseline_tasks)
+        for cases in baseline_results:
             all_test_cases.extend(cases)
 
         # ── Stage 4: Merge & Validate ──
@@ -129,26 +143,40 @@ async def run_test_generation(job_id: str, understanding: dict, user_prompt: str
         all_test_cases = []
 
         feature_plans = plan.get("plan", [])
-        for i, feature_plan in enumerate(feature_plans):
+        total_features = len(feature_plans)
+        completed_features = 0
+        sem = asyncio.Semaphore(5)
+
+        async def generate_feature_with_progress(fp):
+            nonlocal completed_features
+            async with sem:
+                cases = await ollama_client.generate_feature_test_cases(product_context, fp, deep=deep)
+            completed_features += 1
             update_job(
                 job_id,
                 stage="generating_tests",
                 generation_progress={
-                    "current": i + 1,
-                    "total": len(feature_plans),
-                    "feature": feature_plan.get("feature_name", "Unknown"),
+                    "current": completed_features,
+                    "total": total_features,
+                    "feature": fp.get("feature_name", "Unknown"),
                 }
             )
-            cases = await ollama_client.generate_feature_test_cases(
-                product_context, feature_plan, deep=deep
-            )
+            return cases
+
+        feature_tasks = [generate_feature_with_progress(fp) for fp in feature_plans]
+        feature_results = await asyncio.gather(*feature_tasks)
+        for cases in feature_results:
             all_test_cases.extend(cases)
 
         baseline_plans = plan.get("baseline", [])
-        for baseline_item in baseline_plans:
-            cases = await ollama_client.generate_baseline_test_cases(
-                product_context, baseline_item, deep=deep
-            )
+        
+        async def generate_baseline_with_sem(bp):
+            async with sem:
+                return await ollama_client.generate_baseline_test_cases(product_context, bp, deep=deep)
+                
+        baseline_tasks = [generate_baseline_with_sem(bp) for bp in baseline_plans]
+        baseline_results = await asyncio.gather(*baseline_tasks)
+        for cases in baseline_results:
             all_test_cases.extend(cases)
 
         # ── Stage 4: Merge ──
