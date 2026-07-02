@@ -487,3 +487,96 @@ BASELINE CATEGORIES TO ALWAYS INCLUDE: {', '.join(DEFAULT_BASELINE_CATEGORIES)}
             "test_cases": [],
             "error": f"LLM unavailable: {str(e)[:150]}",
         }
+
+
+SINGLE_TEST_EDIT_PROMPT = """You are a senior QA engineer editing an existing test case based on user feedback.
+
+You will receive:
+- The current JSON of the test case.
+- A specific request from the user detailing what needs to be changed.
+
+CRITICAL WRITING RULES:
+1. Maintain the exact same JSON structure.
+2. Update ONLY the parts of the test case requested by the user. If they ask to change the 'expected result', only change that field.
+3. Make sure the 'steps' remain an array of strings, and other types remain correct.
+4. Ensure the output is valid JSON, no markdown fences, no preamble, in this exact shape:
+{
+  "id": "TC-...",
+  "section": "...",
+  "category": "...",
+  "scenario": "...",
+  "description": "...",
+  "precondition": "...",
+  "steps": ["..."],
+  "test_data": "...",
+  "expected_result": "...",
+  "actual_result": "",
+  "postcondition": "...",
+  "status": "",
+  "severity": "Medium",
+  "priority": "P2",
+  "executed_by": ""
+}
+"""
+
+async def edit_single_test_case(test_case: dict, user_prompt: str, deep: bool = False, selected_fields: list = None):
+    model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
+
+    fields_restriction = ""
+    if selected_fields and len(selected_fields) > 0:
+        fields_restriction = f"\n\nCRITICAL RESTRICTION: You MUST ONLY modify the following fields: {', '.join(selected_fields)}. All other fields must remain EXACTLY as they were."
+
+    user_content = f"""CURRENT TEST CASE:
+{json.dumps(test_case, indent=2)}
+
+USER REQUEST (What to change):
+{user_prompt}{fields_restriction}
+"""
+
+    messages = [
+        {"role": "system", "content": SINGLE_TEST_EDIT_PROMPT},
+        {"role": "user", "content": user_content},
+    ]
+
+    try:
+        return await _ollama_chat(messages, model)
+    except Exception as e:
+        return {"error": f"LLM unavailable: {str(e)[:150]}"}
+
+async def classify_chatbot_intent(user_prompt: str, deep: bool = False):
+    model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
+    messages = [
+        {
+            "role": "system",
+            "content": "You are an intent classifier for a Test Case Management system. Determine if the user wants to `generate` new test cases (or modify the whole suite structure) or `execute` existing test cases. Respond with ONLY a valid JSON object containing the `intent` field with either \"generate\" or \"execute\"."
+        },
+        {"role": "user", "content": f"USER PROMPT: {user_prompt}"}
+    ]
+    try:
+        return await _ollama_chat(messages, model)
+    except:
+        return {"intent": "generate"}
+
+async def simulate_execution(test_cases: list, user_prompt: str, deep: bool = False):
+    model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
+    system_prompt = """You are an AI test automation execution agent.
+Based on the user prompt and the list of test cases, identify which test cases the user wants to execute.
+For those test cases, simulate the execution outcome (Pass or Fail) and provide an actual_result based on the prompt's instructions or reasonable assumptions.
+Output a JSON array of ONLY the test cases that were executed, with updated `status` and `actual_result`.
+The JSON must be an array of objects: [{"id": "...", "status": "Pass|Fail", "actual_result": "..."}]"""
+    # only send limited data to save tokens
+    tc_summaries = [{"id": tc.get("id"), "scenario": tc.get("scenario"), "category": tc.get("category")} for tc in test_cases]
+    user_content = f"TEST CASES:\n{json.dumps(tc_summaries, indent=2)}\n\nUSER INSTRUCTION:\n{user_prompt}"
+    messages = [
+        {"role": "system", "content": system_prompt},
+        {"role": "user", "content": user_content}
+    ]
+    try:
+        result = await _ollama_chat(messages, model)
+        if isinstance(result, list):
+            return result
+        elif isinstance(result, dict) and "test_cases" in result:
+            return result["test_cases"]
+        return []
+    except:
+        return []

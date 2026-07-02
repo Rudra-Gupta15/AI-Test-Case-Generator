@@ -121,6 +121,59 @@ async def generate_tests(req: GenerateRequest, background_tasks: BackgroundTasks
     )
     return {"job_id": req.job_id}
 
+@app.post("/api/chatbot")
+async def handle_chatbot(req: GenerateRequest, background_tasks: BackgroundTasks):
+    job = get_job(req.job_id)
+    if not job:
+        raise HTTPException(404, "Job not found")
+    
+    from app.ollama_client import classify_chatbot_intent, simulate_execution
+    
+    classification = await classify_chatbot_intent(req.user_prompt, req.deep)
+    intent = classification.get("intent", "generate")
+    
+    if intent == "execute":
+        if not job.get("test_report") or not job["test_report"].get("test_cases"):
+            return {"action": "error", "message": "No test cases available to execute."}
+        
+        executed_cases = await simulate_execution(job["test_report"]["test_cases"], req.user_prompt, req.deep)
+        
+        # Update job with executed cases
+        if executed_cases:
+            for ec in executed_cases:
+                for tc in job["test_report"]["test_cases"]:
+                    if tc["id"] == ec.get("id"):
+                        tc["status"] = ec.get("status", "")
+                        tc["actual_result"] = ec.get("actual_result", "")
+                        tc["executed_by"] = "AI Bot"
+            return {"action": "execute", "updated_test_cases": executed_cases}
+        return {"action": "execute", "updated_test_cases": []}
+    else:
+        # Generate tests
+        if not job.get("understanding"):
+            raise HTTPException(400, "Run /api/analyze first — no understanding summary found for this job.")
+        background_tasks.add_task(
+            run_test_generation, req.job_id, job["understanding"], req.user_prompt, req.deep
+        )
+        return {"action": "generate", "job_id": req.job_id}
+
+
+from typing import Optional, List
+
+class TestCaseEditRequest(BaseModel):
+    test_case: dict
+    prompt: str
+    deep: bool = False
+    selected_fields: Optional[List[str]] = None
+
+@app.post("/api/generate/edit-test-case")
+async def edit_test_case_api(req: TestCaseEditRequest):
+    from app.ollama_client import edit_single_test_case
+    result = await edit_single_test_case(req.test_case, req.prompt, req.deep, req.selected_fields)
+    if "error" in result:
+        raise HTTPException(500, result["error"])
+    return result
+
 
 class SaveProjectRequest(BaseModel):
     job_id: str
@@ -196,3 +249,23 @@ async def delete_project(project_id: str, db: Session = Depends(get_db)):
     db.delete(project)
     db.commit()
     return {"message": "Project deleted successfully"}
+
+class ImportProjectRequest(BaseModel):
+    name: str
+    notepad: str | None = ""
+    understanding: dict | None = None
+    test_report: dict | None = None
+
+@app.post("/api/projects/import")
+async def import_project(req: ImportProjectRequest, db: Session = Depends(get_db)):
+    project = Project(
+        name=req.name,
+        product_type=req.name,
+        notepad=req.notepad,
+        understanding=req.understanding,
+        test_report=req.test_report
+    )
+    db.add(project)
+    db.commit()
+    db.refresh(project)
+    return {"id": project.id, "message": "Project imported successfully"}

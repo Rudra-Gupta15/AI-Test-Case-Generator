@@ -352,6 +352,58 @@ export default function App() {
   const [editProjectName, setEditProjectName] = useState('')
   const [editProjectNotepad, setEditProjectNotepad] = useState('')
 
+  const [editingAITestCase, setEditingAITestCase] = useState(null)
+  const [aiEditPrompt, setAiEditPrompt] = useState('')
+  const [isAiEditing, setIsAiEditing] = useState(false)
+  const [aiSelectionModeTestCaseId, setAiSelectionModeTestCaseId] = useState(null)
+  const [aiSelectedParts, setAiSelectedParts] = useState([])
+
+  const [sidebarWidth, setSidebarWidth] = useState(380)
+  const handleCellClick = (tcId, field) => {
+    if (aiSelectionModeTestCaseId !== tcId) return;
+    setAiSelectedParts(prev => 
+      prev.includes(field) ? prev.filter(p => p !== field) : [...prev, field]
+    );
+  };
+
+  const getCellProps = (tc, field, extraStyle = {}) => {
+    const isSelecting = aiSelectionModeTestCaseId === tc.id;
+    const isSelected = isSelecting && aiSelectedParts.includes(field);
+    return {
+      onClick: () => handleCellClick(tc.id, field),
+      contentEditable: isSelecting ? 'false' : 'plaintext-only',
+      suppressContentEditableWarning: true,
+      style: {
+        cursor: isSelecting ? 'pointer' : 'text',
+        border: isSelected ? '2px solid #3b82f6' : '1px solid transparent',
+        backgroundColor: isSelected ? '#eff6ff' : 'inherit',
+        boxSizing: 'border-box',
+        transition: 'all 0.2s',
+        ...extraStyle
+      }
+    };
+  };
+
+  const startResizing = (mouseDownEvent) => {
+    mouseDownEvent.preventDefault();
+    const handleMouseMove = (mouseMoveEvent) => {
+      let newWidth = mouseMoveEvent.clientX;
+      if (newWidth < 200) newWidth = 200;
+      if (newWidth > 700) newWidth = 700;
+      setSidebarWidth(newWidth);
+    };
+    const handleMouseUp = () => {
+      document.removeEventListener('mousemove', handleMouseMove);
+      document.removeEventListener('mouseup', handleMouseUp);
+      document.body.style.cursor = 'default';
+      document.body.style.userSelect = 'auto';
+    };
+    document.addEventListener('mousemove', handleMouseMove);
+    document.addEventListener('mouseup', handleMouseUp);
+    document.body.style.cursor = 'col-resize';
+    document.body.style.userSelect = 'none';
+  };
+
   const fetchProjects = async () => {
     try {
       const response = await fetch('/api/projects')
@@ -396,6 +448,102 @@ export default function App() {
       }
     } catch (err) {
       alert("Error deleting project: " + err.message);
+    }
+  };
+
+  const shareProject = async (id) => {
+    try {
+      const response = await fetch(`/api/projects/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
+        const downloadLink = document.createElement('a');
+        downloadLink.href = URL.createObjectURL(blob);
+        downloadLink.download = `project_export_${data.id.substring(0,6)}.json`;
+        document.body.appendChild(downloadLink);
+        downloadLink.click();
+        document.body.removeChild(downloadLink);
+      } else {
+        alert('Failed to fetch project for sharing')
+      }
+    } catch (err) {
+      alert('Error sharing project: ' + err.message)
+    }
+  }
+
+  const handleImportProject = async (e) => {
+    const file = e.target.files[0];
+    if (!file) return;
+    try {
+      const reader = new FileReader();
+      reader.onload = async (event) => {
+        try {
+          const data = JSON.parse(event.target.result);
+          const response = await fetch('/api/projects/import', {
+            method: 'POST',
+            headers: { 'Content-Type': 'application/json' },
+            body: JSON.stringify({
+              name: data.understanding?.product_type || data.name || 'Imported Project',
+              notepad: data.notepad,
+              understanding: data.understanding,
+              test_report: data.test_report
+            })
+          });
+          if (response.ok) {
+            alert('Project imported successfully!');
+            fetchProjects();
+          } else {
+            alert('Failed to import project');
+          }
+        } catch (err) {
+          alert('Error parsing or importing JSON: ' + err.message);
+        }
+      };
+      reader.readAsText(file);
+    } catch (err) {
+      alert('Failed to read file');
+    }
+    e.target.value = ''; // reset file input
+  }
+
+  const submitAiEdit = async () => {
+    if (!editingAITestCase || !aiEditPrompt.trim()) return;
+    setIsAiEditing(true);
+    try {
+      const response = await fetch('/api/generate/edit-test-case', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          test_case: editingAITestCase,
+          prompt: aiEditPrompt,
+          deep: deep,
+          selected_fields: aiSelectedParts.length > 0 ? aiSelectedParts : undefined
+        })
+      });
+      const updatedTestCase = await response.json();
+      if (response.ok && !updatedTestCase.error) {
+        setJob(prev => {
+          if (!prev?.test_report?.test_cases) return prev;
+          const newCases = prev.test_report.test_cases.map(tc => tc.id === editingAITestCase.id ? updatedTestCase : tc);
+          return {
+            ...prev,
+            test_report: {
+              ...prev.test_report,
+              test_cases: newCases
+            }
+          };
+        });
+        setEditingAITestCase(null);
+        setAiEditPrompt('');
+        setAiSelectionModeTestCaseId(null);
+        setAiSelectedParts([]);
+      } else {
+        alert('Failed to edit test case: ' + (updatedTestCase.error || 'Unknown error'));
+      }
+    } catch (err) {
+      alert('Error editing test case: ' + err.message);
+    } finally {
+      setIsAiEditing(false);
     }
   };
 
@@ -528,7 +676,7 @@ export default function App() {
   const generateTests = async () => {
     setGenerating(true)
     try {
-      const res = await fetch('/api/generate-tests', {
+      const res = await fetch('/api/chatbot', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
         body: JSON.stringify({ job_id: job.id, user_prompt: userPrompt, deep }),
@@ -539,7 +687,25 @@ export default function App() {
         setGenerating(false)
         return
       }
-      pollJob(data.job_id)
+      
+      if (data.action === 'execute') {
+        // Handled immediately
+        setJob(prev => {
+          if (!prev?.test_report?.test_cases) return prev;
+          const executedCases = data.updated_test_cases || [];
+          const newCases = prev.test_report.test_cases.map(tc => {
+            const ec = executedCases.find(e => e.id === tc.id);
+            return ec ? { ...tc, status: ec.status, actual_result: ec.actual_result, executed_by: 'AI Bot' } : tc;
+          });
+          return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } };
+        });
+        setGenerating(false);
+        setUserPrompt('');
+        alert('Execution completed successfully!');
+      } else {
+        // It's a generate action, so we poll for the job
+        pollJob(data.job_id)
+      }
     } catch (e) {
       setGenerating(false)
     }
@@ -774,8 +940,23 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
   return (
     <div className={`app-window step-${step}`}>
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
-      <div className="app-sidebar">
-
+      <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth }}>
+        {/* Resizer Handle */}
+        <div 
+          onMouseDown={startResizing}
+          style={{
+            position: 'absolute',
+            top: 0,
+            right: 0,
+            width: '6px',
+            height: '100%',
+            cursor: 'col-resize',
+            zIndex: 100,
+            background: 'transparent'
+          }}
+          onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+          onMouseOut={(e) => e.target.style.background = 'transparent'}
+        />
 
         {/* Step-Specific Sidebar Content */}
         <div className="sidebar-middle">
@@ -1198,14 +1379,14 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       <label>Figma File URL</label>
                       <div className="sleek-input-wrapper">
                         <span className="sleek-input-icon">🎨</span>
-                        <input type="text" placeholder="https://www.figma.com/design/..." value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                        <input type="text" autoComplete="off" placeholder="https://www.figma.com/design/..." value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
                       </div>
                     </div>
                     <div className="sleek-input-group">
                       <label>Figma API Token</label>
                       <div className="sleek-input-wrapper">
                         <span className="sleek-input-icon">🔑</span>
-                        <input type={showFigmaToken ? "text" : "password"} placeholder="figd_..." value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
+                        <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" placeholder="figd_..." value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
                         <button type="button" className="sleek-icon-btn" style={{border: 'none', background: 'transparent', width: 'auto'}} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
                           {showFigmaToken ? '🙈' : '👁️'}
                         </button>
@@ -1406,9 +1587,17 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
         {/* Step 4: History Main Content */}
         {step === 4 && (
           <div className="main-step-container">
-            <div className="main-step-header">
-              <h2>4. Project History</h2>
-              <p>View your past generated test suites and analysis reports.</p>
+            <div className="main-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <div>
+                <h2>4. Project History</h2>
+                <p>View your past generated test suites and analysis reports.</p>
+              </div>
+              <div>
+                <input type="file" id="import-project-input" style={{ display: 'none' }} accept=".json" onChange={handleImportProject} />
+                <button className="btn btn-primary" style={{ padding: '10px 16px', fontSize: '14px', background: 'black', color: 'white', border: 'none', borderRadius: '8px' }} onClick={() => document.getElementById('import-project-input').click()}>
+                  📁 Upload Shared Project
+                </button>
+              </div>
             </div>
             {projects.length === 0 ? (
               <div className="empty-state-monochrome" style={{ textAlign: 'center', marginTop: '40px', padding: '40px' }}>
@@ -1426,6 +1615,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px' }}>
+                      <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
                       <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit / Notes</button>
                       <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
                       <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
@@ -1572,6 +1762,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                                     style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                                   />
                                 </th>
+                                <th style={{ minWidth: '100px' }}>Actions</th>
                                 <th style={{ minWidth: '100px' }}>Test Case ID</th>
                                 <th style={{ minWidth: '120px' }}>Category</th>
                                 <th style={{ minWidth: '180px' }}>Test Scenario</th>
@@ -1599,34 +1790,68 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                                       style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                                     />
                                   </td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)} style={{ whiteSpace: 'nowrap', fontWeight: 600 }}>{tc.id}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{tc.category}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{tc.scenario}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'description', e.target.innerText)}>{tc.description}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'precondition', e.target.innerText)}>{tc.precondition || 'N/A'}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} style={{ whiteSpace: 'pre-wrap' }} onBlur={(e) => {
+                                  <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
+                                    {aiSelectionModeTestCaseId === tc.id ? (
+                                      <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
+                                        <button 
+                                          className="btn btn-primary" 
+                                          style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                          onClick={() => setEditingAITestCase(tc)}
+                                        >
+                                          Continue ({aiSelectedParts.length})
+                                        </button>
+                                        <button 
+                                          className="btn btn-secondary" 
+                                          style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#94a3b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                          onClick={() => {
+                                            setAiSelectionModeTestCaseId(null);
+                                            setAiSelectedParts([]);
+                                          }}
+                                        >
+                                          Cancel
+                                        </button>
+                                      </div>
+                                    ) : (
+                                      <button 
+                                        className="btn btn-secondary" 
+                                        style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
+                                        onClick={() => {
+                                          setAiSelectionModeTestCaseId(tc.id);
+                                          setAiSelectedParts([]);
+                                        }}
+                                      >
+                                        🪄 AI Edit
+                                      </button>
+                                    )}
+                                  </td>
+                                  <td {...getCellProps(tc, 'id', { whiteSpace: 'nowrap', fontWeight: 600 })} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)}>{tc.id}</td>
+                                  <td {...getCellProps(tc, 'category')} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{tc.category}</td>
+                                  <td {...getCellProps(tc, 'scenario')} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{tc.scenario}</td>
+                                  <td {...getCellProps(tc, 'description')} onBlur={(e) => handleCellEdit(tc.id, 'description', e.target.innerText)}>{tc.description}</td>
+                                  <td {...getCellProps(tc, 'precondition')} onBlur={(e) => handleCellEdit(tc.id, 'precondition', e.target.innerText)}>{tc.precondition || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'steps', { whiteSpace: 'pre-wrap' })} onBlur={(e) => {
                                     const text = e.target.innerText.trim();
                                     handleCellEdit(tc.id, 'steps', text ? text.split('\n') : [])
                                   }}>
                                     {tc.steps?.length > 0 ? tc.steps.join('\n') : 'N/A'}
                                   </td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{tc.test_data || 'N/A'}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{tc.expected_result || 'N/A'}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{tc.actual_result || 'N/A'}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{tc.postcondition || 'N/A'}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)} style={{
+                                  <td {...getCellProps(tc, 'test_data')} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{tc.test_data || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'expected_result')} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{tc.expected_result || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'actual_result')} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{tc.actual_result || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'postcondition')} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{tc.postcondition || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'status', {
                                     fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
                                     color:
                                       tc.status === 'Pass' ? '#16a34a' :
                                       tc.status === 'Fail' ? '#dc2626' :
                                       tc.status === 'Blocked' ? '#ca8a04' :
                                       tc.status === 'Skipped' ? '#6b7280' : 'inherit'
-                                  }}>
+                                  })} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)}>
                                     {tc.status || 'N/A'}
                                   </td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'severity', e.target.innerText)} className={`severity-${tc.severity?.toLowerCase()}`}>{tc.severity}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'priority', e.target.innerText)}>{tc.priority}</td>
-                                  <td contentEditable="plaintext-only" suppressContentEditableWarning={true} onBlur={(e) => handleCellEdit(tc.id, 'executed_by', e.target.innerText)}>{tc.executed_by || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'severity')} onBlur={(e) => handleCellEdit(tc.id, 'severity', e.target.innerText)} className={`severity-${tc.severity?.toLowerCase()}`}>{tc.severity}</td>
+                                  <td {...getCellProps(tc, 'priority')} onBlur={(e) => handleCellEdit(tc.id, 'priority', e.target.innerText)}>{tc.priority}</td>
+                                  <td {...getCellProps(tc, 'executed_by')} onBlur={(e) => handleCellEdit(tc.id, 'executed_by', e.target.innerText)}>{tc.executed_by || 'N/A'}</td>
                                 </tr>
                               ))}
                             </tbody>
@@ -1779,6 +2004,62 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
                 <button className="btn" style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: 'none' }} onClick={() => setEditingProject(null)}>Cancel</button>
                 <button className="btn btn-primary" style={{ padding: '8px 16px' }} onClick={saveEditProject}>Save Changes</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {editingAITestCase && (
+        <div className="preview-modal-overlay" onClick={() => !isAiEditing && setEditingAITestCase(null)}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '600px', height: 'auto' }}>
+            <div className="preview-modal-header">
+              <h3>🪄 AI Edit Test Case: {editingAITestCase.id}</h3>
+              {!isAiEditing && (
+                <button className="close-modal-btn" onClick={() => setEditingAITestCase(null)}>✕</button>
+              )}
+            </div>
+            <div className="preview-modal-body" style={{ padding: '20px' }}>
+              <p style={{ marginBottom: '16px', color: '#475569', fontSize: '0.9rem' }}>
+                <strong>Scenario:</strong> {editingAITestCase.scenario}
+              </p>
+              {aiSelectedParts.length > 0 && (
+                <p style={{ marginBottom: '16px', color: '#3b82f6', fontSize: '0.9rem', backgroundColor: '#eff6ff', padding: '8px', borderRadius: '4px', border: '1px solid #bfdbfe' }}>
+                  <strong>Targeting only fields:</strong> {aiSelectedParts.join(', ')}
+                </p>
+              )}
+              <div className="form-group" style={{ marginBottom: '24px' }}>
+                <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#334155' }}>What would you like to change?</label>
+                <textarea 
+                  value={aiEditPrompt} 
+                  onChange={(e) => setAiEditPrompt(e.target.value)} 
+                  placeholder="e.g., 'Make the expected result more detailed' or 'Change the precondition to require an admin user'"
+                  style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '100px', resize: 'vertical' }}
+                  disabled={isAiEditing}
+                />
+              </div>
+              <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
+                <button 
+                  className="btn" 
+                  style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: 'none' }} 
+                  onClick={() => {
+                    setEditingAITestCase(null);
+                    setAiSelectionModeTestCaseId(null);
+                    setAiSelectedParts([]);
+                  }}
+                  disabled={isAiEditing}
+                >
+                  Cancel
+                </button>
+                <button 
+                  className="btn btn-primary" 
+                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }} 
+                  onClick={submitAiEdit}
+                  disabled={isAiEditing || !aiEditPrompt.trim()}
+                >
+                  {isAiEditing ? <span className="spinner-small"></span> : '🪄'}
+                  {isAiEditing ? 'Applying...' : 'Apply Changes'}
+                </button>
               </div>
             </div>
           </div>
