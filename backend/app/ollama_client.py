@@ -17,10 +17,11 @@ You will receive:
 - FSD (Functional Spec Document) text — how it should behave in detail
 - Figma screen/frame names — the designed screens
 - Reference image descriptions — visual mockups/screenshots
+- Project Website Text — scraped text from a live project URL
 
 Your job: read everything and produce a structured understanding summary. Identify:
 1. Product type and one-line purpose
-2. Core features (list, each tied to its source: BRD/FSD/Figma/Image). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
+2. Core features (list, each tied to its source: BRD|FSD|Figma|Image|Website). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
 3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation"). CRITICAL: List ALL user flows comprehensively.
 4. Inconsistencies or contradictions BETWEEN the documents (e.g. BRD mentions a feature with no FSD detail, or FSD describes a screen Figma doesn't have)
 5. Gaps — anything mentioned in one document but missing detail in another
@@ -29,7 +30,7 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact sha
 {
   "product_type": "...",
   "purpose": "...",
-  "features": [{"name": "...", "source": "BRD|FSD|Figma|Image|Multiple", "description": "..."}],
+  "features": [{"name": "...", "source": "BRD|FSD|Figma|Image|Website|Multiple", "description": "..."}],
   "flows": [{"name": "...", "steps": ["...", "..."]}],
   "inconsistencies": [{"issue": "...", "severity": "High|Medium|Low", "detail": "..."}],
   "gaps": [{"item": "...", "detail": "..."}]
@@ -213,17 +214,25 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: UNDERSTAND  (unchanged)
 # ──────────────────────────────────────────────────────────────────────
-async def understand(brd_text: str, fsd_text: str, figma_screens: list, image_paths: list[str], deep: bool = False):
+async def understand(brd_text: str, fsd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
-    user_content = f"""BRD TEXT:
+    figma_text = "\n".join([
+        f"Screen: {s.get('name', 'Unknown')} (Type: {s.get('type', 'Unknown')})"
+        for s in figma_screens
+    ])
+    
+    user_content = f"""BRD:
 {brd_text or '[No BRD provided]'}
 
-FSD TEXT:
+FSD:
 {fsd_text or '[No FSD provided]'}
 
-FIGMA SCREENS FOUND:
-{json.dumps(figma_screens, indent=2) if figma_screens else '[No Figma screens found]'}
+Figma Design Info:
+{figma_text or '[No Figma screens found]'}
+
+Project Website Text:
+{project_text or '[No project text provided]'}
 
 REFERENCE IMAGES: {len(image_paths)} image(s) attached for visual context.
 """
@@ -242,6 +251,9 @@ REFERENCE IMAGES: {len(image_paths)} image(s) attached for visual context.
     try:
         return await _ollama_chat(messages, model, images_b64 or None)
     except Exception as e:
+        print(f"======== AI ERROR - FAILED TO EXTRACT JSON ========")
+        print(f"ERROR: {e}")
+        print(f"===================================================")
         return {
             "product_type": "Unknown",
             "purpose": f"LLM unavailable: {str(e)[:150]}",

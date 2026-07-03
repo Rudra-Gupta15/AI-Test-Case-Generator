@@ -755,22 +755,25 @@ export default function App() {
   const showAnalyzeRail = submitting && job && !job.understanding
 
   // Step 2 counts
-  const featuresCount = job?.understanding?.features?.length || 0
-  const flowsCount = job?.understanding?.flows?.length || 0
-  const inconsistenciesCount = job?.understanding?.inconsistencies?.length || 0
-  const gapsCount = job?.understanding?.gaps?.length || 0
-  const totalIssues = inconsistenciesCount + gapsCount
+  const featuresList = Array.isArray(job?.understanding?.features) ? job.understanding.features : []
+  const flowsList = Array.isArray(job?.understanding?.flows) ? job.understanding.flows : []
+  const inconsistenciesList = Array.isArray(job?.understanding?.inconsistencies) ? job.understanding.inconsistencies : []
+  const gapsList = Array.isArray(job?.understanding?.gaps) ? job.understanding.gaps : []
+
+  const featuresCount = featuresList.length
+  const flowsCount = flowsList.length
+  const totalIssues = inconsistenciesList.length + gapsList.length
 
   // Step 3 calculations
-  const cases = job?.test_report?.test_cases || []
+  const cases = Array.isArray(job?.test_report?.test_cases) ? job.test_report.test_cases : []
   const categories = ['All', ...new Set(cases.map((c) => c.category))]
   const filteredCases = cases.filter((tc) => {
     const matchesCategory = reportFilter === 'All' || tc.category === reportFilter
     const matchesSearch =
       (tc.scenario && tc.scenario.toLowerCase().includes(searchQuery.toLowerCase())) ||
       (tc.description && tc.description.toLowerCase().includes(searchQuery.toLowerCase())) ||
-      tc.id.toLowerCase().includes(searchQuery.toLowerCase()) ||
-      tc.steps?.some((s) => s.toLowerCase().includes(searchQuery.toLowerCase())) ||
+      (tc.id || '').toLowerCase().includes(searchQuery.toLowerCase()) ||
+      tc.steps?.some((s) => (s || '').toLowerCase().includes(searchQuery.toLowerCase())) ||
       (tc.expected_result && tc.expected_result.toLowerCase().includes(searchQuery.toLowerCase()))
     return matchesCategory && matchesSearch
   })
@@ -988,8 +991,8 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
 
         {/* Sidebar Brand Header */}
         {step !== 3 && (
-          <div style={{ padding: '0', display: 'flex', alignItems: 'flex-start', justifyContent: 'flex-start', width: '100%', marginTop: '-16px', marginLeft: '-12px' }}>
-            <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '200px', height: 'auto', objectFit: 'contain' }} />
+          <div style={{ padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%', marginBottom: '24px' }}>
+            <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '160px', height: 'auto', objectFit: 'contain' }} />
           </div>
         )}
 
@@ -1098,7 +1101,8 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
             <div className="sidebar-report-controls">
               {(() => {
                 const treeData = {}
-                job.test_report.test_cases.forEach((tc) => {
+                const cases = Array.isArray(job.test_report?.test_cases) ? job.test_report.test_cases : []
+                cases.forEach((tc) => {
                   const sec = tc.section || 'General'
                   if (!treeData[sec]) treeData[sec] = []
                   treeData[sec].push(tc)
@@ -1203,10 +1207,8 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
         <div className="floating-navbar-container">
           <div className="floating-navbar">
             <div className="nav-brand" style={{ gap: '10px' }}>
-              <div style={{ width: '28px', height: '28px', borderRadius: '50%', background: 'linear-gradient(135deg, #3b82f6, #8b5cf6)', display: 'flex', alignItems: 'center', justifyContent: 'center', boxShadow: '0 2px 8px rgba(59, 130, 246, 0.4)' }}>
-                <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="#ffffff" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round">
-                  <path d="M12 2L2 7l10 5 10-5-10-5zM2 17l10 5 10-5M2 12l10 5 10-5"/>
-                </svg>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src="/Logo.png" alt="Logo" style={{ height: '24px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
               </div>
               <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
@@ -1426,15 +1428,13 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                     <div className="sleek-input-group">
                       <label>Figma File URL</label>
                       <div className="sleek-input-wrapper">
-                        <span className="sleek-input-icon">🎨</span>
-                        <input type="text" autoComplete="off" placeholder="https://www.figma.com/design/..." value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                        <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
                       </div>
                     </div>
                     <div className="sleek-input-group">
                       <label>Figma API Token</label>
                       <div className="sleek-input-wrapper">
-                        <span className="sleek-input-icon">🔑</span>
-                        <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" placeholder="figd_..." value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
+                        <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
                         <button type="button" className="sleek-icon-btn" style={{border: 'none', background: 'transparent', width: 'auto'}} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
                           {showFigmaToken ? '🙈' : '👁️'}
                         </button>
@@ -1453,15 +1453,13 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                     <div className="sleek-input-group">
                       <label>GitHub Repository URL</label>
                       <div className="sleek-input-wrapper">
-                        <span className="sleek-input-icon">💻</span>
-                        <input type="text" placeholder="https://github.com/org/repo" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
+                        <input type="text" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
                       </div>
                     </div>
                     <div className="sleek-input-group">
                       <label>Deployed Project URL</label>
                       <div className="sleek-input-wrapper">
-                        <span className="sleek-input-icon">🌐</span>
-                        <input type="text" placeholder="https://my-app.vercel.app" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
+                        <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
                       </div>
                     </div>
                   </div>
@@ -1526,10 +1524,10 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       <div className="empty-state-monochrome">No features identified.</div>
                     ) : (
                       <div className="features-grid-monochrome">
-                        {job.understanding.features.map((f, i) => (
+                        {featuresList.map((f, i) => (
                           <div key={i} className="feature-card-monochrome">
                             <div className="feature-card-header-monochrome">
-                              <span className={`source-badge-monochrome ${f.source.toLowerCase()}`}>{f.source}</span>
+                              <span className={`source-badge-monochrome ${(f.source || '').toLowerCase()}`}>{f.source || 'Website'}</span>
                               <h4>{f.name}</h4>
                             </div>
                             <p>{f.description}</p>
@@ -1546,7 +1544,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       <div className="empty-state-monochrome">No user flows identified.</div>
                     ) : (
                       <div className="flows-list-monochrome">
-                        {job.understanding.flows.map((f, i) => {
+                        {flowsList.map((f, i) => {
                           // Generate mermaid diagram string from steps
                           let allSteps = []
                           f.steps?.forEach(step => {
@@ -1594,13 +1592,13 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                       </div>
                     ) : (
                       <div className="issues-list-monochrome">
-                        {inconsistenciesCount > 0 && (
+                        {inconsistenciesList.length > 0 && (
                           <div className="issues-section-monochrome">
                             <h6>Document Inconsistencies</h6>
-                            {job.understanding.inconsistencies.map((iss, i) => (
-                              <div key={i} className={`issue-card-monochrome ${iss.severity.toLowerCase()}`}>
+                            {inconsistenciesList.map((iss, i) => (
+                              <div key={i} className={`issue-card-monochrome ${(iss.severity || '').toLowerCase()}`}>
                                 <div className="issue-card-header-monochrome">
-                                  <span className={`severity-badge-monochrome ${iss.severity.toLowerCase()}`}>{iss.severity}</span>
+                                  <span className={`severity-badge-monochrome ${(iss.severity || '').toLowerCase()}`}>{iss.severity || 'Normal'}</span>
                                   <h5>{iss.issue}</h5>
                                 </div>
                                 <p>{iss.detail}</p>
@@ -1609,10 +1607,10 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                           </div>
                         )}
 
-                        {gapsCount > 0 && (
+                        {gapsList.length > 0 && (
                           <div className="issues-section-monochrome" style={{ marginTop: 24 }}>
                             <h6>Identified Gaps</h6>
-                            {job.understanding.gaps.map((g, i) => (
+                            {gapsList.map((g, i) => (
                               <div key={i} className="issue-card-monochrome gap">
                                 <div className="issue-card-header-monochrome">
                                   <span className="severity-badge-monochrome gap">GAP</span>
@@ -1730,24 +1728,24 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 {/* Search and Filters */}
                 <div className="filter-bar-monochrome" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
                   <button 
-                    className="btn" 
-                    style={{ padding: '8px 16px', fontSize: '14px', background: '#fff', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '8px', color: '#334155', fontWeight: '500', minWidth: 'max-content' }}
+                    className="secondary-monochrome-btn"
                     onClick={() => {
-                      const allSelected = job.test_report.test_cases.every(tc => selectedTestCases[tc.id]);
-                      const next = { ...selectedTestCases };
-                      job.test_report.test_cases.forEach(tc => {
-                        next[tc.id] = !allSelected;
+                      const allSelected = cases.every(tc => selectedTestCases[tc.id]);
+                      const newSelection = { ...selectedTestCases };
+                      cases.forEach(tc => {
+                        newSelection[tc.id] = !allSelected;
                       });
-                      setSelectedTestCases(next);
+                      setSelectedTestCases(newSelection);
                     }}
+                    style={{ padding: '6px 12px', fontSize: '13px', margin: 0 }}
                   >
                     <input 
                       type="checkbox" 
-                      checked={job.test_report.test_cases.length > 0 && job.test_report.test_cases.every(tc => selectedTestCases[tc.id])}
+                      checked={cases.length > 0 && cases.every(tc => selectedTestCases[tc.id])}
                       readOnly
-                      style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
+                      style={{ marginRight: '6px' }}
                     />
-                    {job.test_report.test_cases.length > 0 && job.test_report.test_cases.every(tc => selectedTestCases[tc.id]) ? 'Deselect All' : 'Select All'}
+                    {cases.length > 0 && cases.every(tc => selectedTestCases[tc.id]) ? 'Deselect All' : 'Select All'}
                   </button>
                   <input
                     type="text"

@@ -14,7 +14,7 @@ from app import doc_parser, figma_client, ollama_client
 
 async def run_analysis(job_id: str, brd_path: str | None, fsd_path: str | None,
                         image_paths: list[str], figma_url: str | None,
-                        figma_token: str | None, deep: bool):
+                        figma_token: str | None, project_url: str | None, deep: bool):
     try:
         # ── Stage 1: Parse documents ──
         update_job(job_id, status="running", stage="parsing_documents")
@@ -32,10 +32,31 @@ async def run_analysis(job_id: str, brd_path: str | None, fsd_path: str | None,
             except Exception as e:
                 figma_screens = [{"name": f"[Figma fetch failed: {str(e)[:100]}]", "type": "ERROR"}]
 
+        project_text = ""
+        if project_url:
+            update_job(job_id, status="running", stage="parsing_documents")
+            try:
+                import requests
+                jina_url = f"https://r.jina.ai/{project_url.strip()}"
+                print(f"======== WEB SCRAPER TRIGGERED: {jina_url} ========")
+                headers = {'User-Agent': 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36'}
+                resp = requests.get(jina_url, headers=headers, timeout=25)
+                print(f"======== SCRAPER STATUS CODE: {resp.status_code} ========")
+                if resp.status_code == 200:
+                    project_text = doc_parser.truncate_for_llm(resp.text)
+                    print(f"======== SCRAPER SUCCESS: FETCHED {len(resp.text)} chars, TRUNCATED TO {len(project_text)} chars ========")
+                    print(f"======== SCRAPER PREVIEW: {project_text[:200]} ========")
+                else:
+                    project_text = f"[Failed to scrape {project_url}: HTTP {resp.status_code} - {resp.text[:100]}]"
+                    print(f"======== SCRAPER HTTP ERROR: {project_text} ========")
+            except Exception as e:
+                project_text = f"[Failed to scrape {project_url}: {str(e)}]"
+                print(f"======== SCRAPER EXCEPTION: {str(e)} ========")
+
         # ── Stage 1b: LLM Understanding ──
         update_job(job_id, stage="understanding")
         understanding = await ollama_client.understand(
-            brd_text, fsd_text, figma_screens, image_paths, deep=deep
+            brd_text, fsd_text, figma_screens, image_paths, project_text, deep=deep
         )
 
         update_job(job_id, understanding=understanding)

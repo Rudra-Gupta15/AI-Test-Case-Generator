@@ -89,7 +89,7 @@ async def analyze(
     token = figma_token or FIGMA_TOKEN
 
     background_tasks.add_task(
-        run_analysis, job_id, brd_path, fsd_path, image_paths, figma_url, token, deep
+        run_analysis, job_id, brd_path, fsd_path, image_paths, figma_url, token, project_url, deep
     )
     return {"job_id": job_id}
 
