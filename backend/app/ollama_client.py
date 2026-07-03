@@ -592,3 +592,46 @@ The JSON must be an array of objects: [{"id": "...", "status": "Pass|Fail", "act
         return []
     except:
         return []
+
+
+TREE_GENERATION_PROMPT = """You are an AI architect helping to design a software testing structure.
+The user will provide a prompt describing what they want to build (e.g. 'login page structure', 'checkout flow').
+You must generate a logical tree structure using our node types:
+- Module (highest level folder)
+- Feature (a specific piece of functionality)
+- Requirement (a business or technical requirement)
+- TestSuite (a collection of test cases)
+
+Return ONLY a valid JSON array of nodes. No markdown, no explanation.
+Format:
+[
+  {
+    "name": "Node Name",
+    "node_type": "Module|Feature|Requirement|TestSuite",
+    "children": [ ...nested nodes if any... ]
+  }
+]
+"""
+
+async def generate_tree_structure(prompt: str, model: str = DEFAULT_FAST_MODEL) -> list:
+    """Call Ollama to generate a tree structure from a user prompt."""
+    messages = [
+        {"role": "system", "content": TREE_GENERATION_PROMPT},
+        {"role": "user", "content": prompt}
+    ]
+    try:
+        response_text = await _ollama_chat(messages, model)
+        # Attempt to parse JSON
+        if isinstance(response_text, str):
+            if response_text.startswith("```json"):
+                response_text = response_text[7:]
+            if response_text.endswith("```"):
+                response_text = response_text[:-3]
+            parsed = json.loads(response_text.strip())
+            return parsed if isinstance(parsed, list) else []
+        elif isinstance(response_text, list):
+            return response_text
+        return []
+    except Exception as e:
+        print(f"Error generating tree structure: {e}")
+        return []

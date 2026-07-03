@@ -1,4 +1,13 @@
 import { useState, useRef, useEffect } from 'react'
+import { Routes, Route, Navigate, useParams } from 'react-router-dom'
+import { useAuth } from './context/AuthContext.jsx'
+import ProtectedRoute from './components/shared/ProtectedRoute.jsx'
+import LoginPage from './components/auth/LoginPage.jsx'
+import ProjectListPage from './components/projects/ProjectListPage.jsx'
+import NewProjectForm from './components/projects/NewProjectForm.jsx'
+import TreeBuilderPage from './components/tree/TreeBuilderPage.jsx'
+import AdminDashboard from './components/admin/AdminDashboard.jsx'
+
 
 const ANALYZE_STAGES = [
   { key: 'parsing_documents', label: 'Parsing Documents' },
@@ -250,8 +259,18 @@ function TreeFolder({ section, testCases, selectedView, onSelect }) {
   )
 }
 
-export default function App() {
+
+// ─────────────────────────────────────────────────────────────────────────────
+// LegacyWorkspaceView — the original App content, preserved for old projects.
+// Accessible at /project/:id/legacy
+// ─────────────────────────────────────────────────────────────────────────────
+import { useNavigate } from 'react-router-dom'
+
+function LegacyWorkspaceView() {
+
   // Input states
+  const navigate = useNavigate();
+  const { currentUser, logout } = useAuth();
   const [brd, setBrd] = useState(null)
   const [fsd, setFsd] = useState(null)
   const [images, setImages] = useState([])
@@ -408,7 +427,12 @@ export default function App() {
 
   const fetchProjects = async () => {
     try {
-      const response = await fetch('/api/projects')
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/projects', {
+        headers: {
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        }
+      })
       if (response.ok) {
         const data = await response.json()
         setProjects(data)
@@ -419,10 +443,8 @@ export default function App() {
   }
 
   useEffect(() => {
-    if (step === 4) {
-      fetchProjects()
-    }
-  }, [step])
+    fetchProjects()
+  }, [])
 
   const loadProject = async (id) => {
     try {
@@ -606,9 +628,13 @@ export default function App() {
   const saveProject = async () => {
     if (!job?.test_report) return
     try {
-      const response = await fetch('/api/projects', {
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/projects/save', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: { 
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
         body: JSON.stringify({ job_id: job.id }),
       })
       if (response.ok) {
@@ -809,7 +835,7 @@ export default function App() {
 **Category:** ${tc.category} | **Priority:** ${tc.priority} | **Severity:** ${tc.severity}
 **Precondition:** ${tc.precondition || 'None'}
 **Steps:**
-${tc.steps?.map((s) => `${s}`).join('\n')}
+${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps || 'N/A')}
 
 **Test Data:** \`${tc.test_data || 'None'}\`
 **Expected Result:** ${tc.expected_result}
@@ -863,7 +889,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                 <td>${tc.scenario || ''}</td>
                 <td>${tc.description || ''}</td>
                 <td>${tc.precondition || ''}</td>
-                <td>${(tc.steps || []).join('<br/>')}</td>
+                <td>${Array.isArray(tc.steps) ? tc.steps.join('<br/>') : (tc.steps || 'N/A')}</td>
                 <td>${tc.test_data || ''}</td>
                 <td>${tc.expected_result || ''}</td>
                 <td>${tc.actual_result || ''}</td>
@@ -1879,7 +1905,7 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
                                     const text = e.target.innerText.trim();
                                     handleCellEdit(tc.id, 'steps', text ? text.split('\n') : [])
                                   }}>
-                                    {tc.steps?.length > 0 ? tc.steps.join('\n') : 'N/A'}
+                                    {Array.isArray(tc.steps) ? tc.steps.join('\n') : (tc.steps || 'N/A')}
                                   </td>
                                   <td {...getCellProps(tc, 'test_data')} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{tc.test_data || 'N/A'}</td>
                                   <td {...getCellProps(tc, 'expected_result')} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{tc.expected_result || 'N/A'}</td>
@@ -2160,5 +2186,38 @@ ${tc.steps?.map((s) => `${s}`).join('\n')}
         </div>
       )}
     </div>
+  )
+}
+
+// ─────────────────────────────────────────────────────────────────────────────
+// App — router shell
+// ─────────────────────────────────────────────────────────────────────────────
+export default function App() {
+
+  const { isAuthenticated } = useAuth()
+
+  return (
+    <Routes>
+      {/* Public */}
+      <Route path="/login" element={<LoginPage />} />
+
+      {/* Root redirect */}
+      <Route
+        path="/"
+        element={isAuthenticated ? <Navigate to="/projects" replace /> : <Navigate to="/login" replace />}
+      />
+
+      {/* Protected — User */}
+      <Route path="/projects" element={<ProtectedRoute><ProjectListPage /></ProtectedRoute>} />
+      <Route path="/projects/new" element={<ProtectedRoute><NewProjectForm /></ProtectedRoute>} />
+      <Route path="/project/:id/build" element={<ProtectedRoute><TreeBuilderPage /></ProtectedRoute>} />
+      <Route path="/project/:id/legacy" element={<ProtectedRoute><LegacyWorkspaceView /></ProtectedRoute>} />
+
+      {/* Protected — Admin only */}
+      <Route path="/admin" element={<ProtectedRoute requireAdmin><AdminDashboard /></ProtectedRoute>} />
+
+      {/* Fallback */}
+      <Route path="*" element={<Navigate to="/" replace />} />
+    </Routes>
   )
 }
