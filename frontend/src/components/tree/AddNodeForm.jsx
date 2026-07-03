@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { treeApi } from '../../api/tree.js'
+import treeService from '../../services/treeService.js'
 
 const NODE_TYPES = ['Module', 'Feature', 'Requirement', 'TestSuite', 'Release', 'Custom']
 
@@ -19,7 +19,7 @@ export default function AddNodeForm({ projectId, parentId, onCreated, onCancel }
     if (!name.trim()) return
     setSaving(true)
     try {
-      const node = await treeApi.createNode({
+      const node = await treeService.createNode({
         project_id: projectId,
         parent_id: parentId || null,
         node_type: nodeType,

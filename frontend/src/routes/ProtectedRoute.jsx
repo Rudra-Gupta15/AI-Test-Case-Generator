@@ -1,5 +1,6 @@
 import { Navigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import PropTypes from 'prop-types'
 
 export default function ProtectedRoute({ children, requireAdmin = false }) {
   const { isAuthenticated, currentUser } = useAuth()
@@ -13,4 +14,9 @@ export default function ProtectedRoute({ children, requireAdmin = false }) {
   }
 
   return children
+}
+
+ProtectedRoute.propTypes = {
+  children: PropTypes.node.isRequired,
+  requireAdmin: PropTypes.bool,
 }

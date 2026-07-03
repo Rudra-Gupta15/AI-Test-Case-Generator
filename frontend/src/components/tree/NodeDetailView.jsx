@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { treeApi } from '../../api/tree.js'
+import treeService from '../../services/treeService.js'
 
 /**
  * Lightweight inline editor for non-Feature leaf nodes (TestCase, Scenario, Requirement, etc.)
@@ -26,7 +26,7 @@ export default function NodeDetailView({ node, onClose, onNodeUpdated }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const updated = await treeApi.patchNodeData(node.id, fields)
+      const updated = await treeService.patchNodeData(node.id, fields)
       onNodeUpdated?.(updated)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)

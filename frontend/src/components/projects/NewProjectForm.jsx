@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { projectsApi } from '../../api/projects.js'
-import { treeApi } from '../../api/tree.js'
+import projectService from '../../services/projectService.js'
+import treeService from '../../services/treeService.js'
 
 const DOMAINS = ['Banking', 'Finance', 'Healthcare', 'E-commerce', 'Education',
                  'Insurance', 'Logistics', 'Real Estate', 'Social Media', 'Telecom',
@@ -238,7 +238,7 @@ export default function NewProjectForm() {
 
   async function handleAIGenerate(promptText, mode) {
     try {
-      const { nodes: generatedTree } = await treeApi.generateFromPrompt(promptText)
+      const { nodes: generatedTree } = await treeService.generateFromPrompt(promptText)
       if (!generatedTree || generatedTree.length === 0) {
         alert("Failed to generate structure or empty response")
         return
@@ -279,7 +279,7 @@ export default function NewProjectForm() {
     setError('')
     try {
       // 1. Create project
-      const project = await projectsApi.create({
+      const project = await projectService.create({
         name: form.name.trim(),
         description: form.description.trim(),
         domain: form.domain,
@@ -294,7 +294,7 @@ export default function NewProjectForm() {
         
         for (const node of nodes) {
           const actualParentId = node.parent_id ? idMap[node.parent_id] : null
-          const created = await treeApi.createNode({
+          const created = await treeService.createNode({
             project_id: project.id,
             parent_id: actualParentId,
             node_type: node.node_type,

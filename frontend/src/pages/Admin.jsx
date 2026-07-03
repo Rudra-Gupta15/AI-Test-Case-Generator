@@ -1,9 +1,9 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext.jsx'
-import api from '../../api/client.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import client from '../services/client.js'
 
-export default function AdminDashboard() {
+export default function Admin() {
   const { currentUser, logout } = useAuth()
   const navigate = useNavigate()
 
@@ -15,7 +15,7 @@ export default function AdminDashboard() {
   const [error, setError] = useState('')
 
   useEffect(() => {
-    api.get('/api/admin/users')
+    client.get('/api/admin/users')
       .then(setUsers)
       .catch(err => setError(err.message))
       .finally(() => setLoading(false))
@@ -26,7 +26,7 @@ export default function AdminDashboard() {
     if (!createForm.login_id.trim() || !createForm.password) return
     setCreating(true)
     try {
-      const newUser = await api.post('/api/admin/users', createForm)
+      const newUser = await client.post('/api/admin/users', createForm)
       setUsers(prev => [newUser, ...prev])
       setCreateForm({ login_id: '', password: '', role: 'user' })
       setShowCreate(false)
@@ -39,7 +39,7 @@ export default function AdminDashboard() {
 
   async function toggleActive(user) {
     try {
-      const updated = await api.put(`/api/admin/users/${user.id}`, { is_active: !user.is_active })
+      const updated = await client.put(`/api/admin/users/${user.id}`, { is_active: !user.is_active })
       setUsers(prev => prev.map(u => u.id === updated.id ? updated : u))
     } catch (err) {
       setError(err.message)
@@ -49,7 +49,7 @@ export default function AdminDashboard() {
   async function handleDelete(userId) {
     if (!confirm('Delete this user? This cannot be undone.')) return
     try {
-      await api.delete(`/api/admin/users/${userId}`)
+      await client.delete(`/api/admin/users/${userId}`)
       setUsers(prev => prev.filter(u => u.id !== userId))
     } catch (err) {
       setError(err.message)
@@ -182,14 +182,14 @@ export default function AdminDashboard() {
                         {u.id !== currentUser?.id && (
                           <>
                             <button
-                              className="admin-action-btn"
+                               className="admin-action-btn"
                               onClick={() => toggleActive(u)}
                               title={u.is_active ? 'Deactivate' : 'Activate'}
                             >
                               {u.is_active ? '⏸ Deactivate' : '▶ Activate'}
                             </button>
                             <button
-                              className="admin-action-btn admin-action-btn--danger"
+                               className="admin-action-btn admin-action-btn--danger"
                               onClick={() => handleDelete(u.id)}
                               title="Delete user"
                             >

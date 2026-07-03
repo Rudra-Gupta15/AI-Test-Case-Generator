@@ -1,13 +1,13 @@
 import { useState, useEffect } from 'react'
 import { useParams, useNavigate } from 'react-router-dom'
-import { projectsApi } from '../../api/projects.js'
-import { treeApi } from '../../api/tree.js'
-import LeftPanel from './LeftPanel.jsx'
-import MiddlePanel from './MiddlePanel.jsx'
-import RightPanel from './RightPanel.jsx'
-import NodeDrawer from './NodeDrawer.jsx'
-import NodeDetailView from './NodeDetailView.jsx'
-import { useAuth } from '../../context/AuthContext.jsx'
+import projectService from '../services/projectService.js'
+import treeService from '../services/treeService.js'
+import LeftPanel from '../components/tree/LeftPanel.jsx'
+import MiddlePanel from '../components/tree/MiddlePanel.jsx'
+import RightPanel from '../components/tree/RightPanel.jsx'
+import NodeDrawer from '../components/tree/NodeDrawer.jsx'
+import NodeDetailView from '../components/tree/NodeDetailView.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
 
 /**
  * Build an ancestor chain for a node up to (but not including) the project root.
@@ -23,7 +23,7 @@ function buildBreadcrumb(nodeId, nodesById, projectName, projectId) {
   return [{ id: projectId, name: projectName }, ...chain]
 }
 
-export default function TreeBuilderPage() {
+export default function TreeBuilder() {
   const { id: projectId } = useParams()
   const navigate = useNavigate()
   const { logout } = useAuth()
@@ -43,8 +43,8 @@ export default function TreeBuilderPage() {
 
   useEffect(() => {
     Promise.all([
-      projectsApi.get(projectId),
-      treeApi.getNodes(projectId),
+      projectService.get(projectId),
+      treeService.getNodes(projectId),
     ])
       .then(([proj, nodeList]) => {
         setProject(proj)
@@ -110,7 +110,7 @@ export default function TreeBuilderPage() {
   return (
     <div className="tree-builder-page">
       {/* Top nav */}
-            <header className="tree-builder-nav" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '12px 24px', color: '#ffffff' }}>
+      <header className="tree-builder-nav" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '12px 24px', color: '#ffffff' }}>
         <button 
           style={{ background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
           onClick={() => navigate('/projects')}

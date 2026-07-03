@@ -1,5 +1,5 @@
 import { useState } from 'react'
-import { treeApi } from '../../api/tree.js'
+import treeService from '../../services/treeService.js'
 
 const DOMAINS = ['Banking', 'Finance', 'Healthcare', 'E-commerce', 'Education',
                  'Insurance', 'Logistics', 'Real Estate', 'Social Media', 'Telecom',
@@ -28,8 +28,8 @@ export default function LeftPanel({ project, onProjectUpdated }) {
   async function handleSave() {
     setSaving(true)
     try {
-      const { projectsApi } = await import('../../api/projects.js')
-      await projectsApi.update(project.id, form)
+      const projectService = (await import('../../services/projectService.js')).default
+      await projectService.update(project.id, form)
       onProjectUpdated?.(form)
       setSaved(true)
       setTimeout(() => setSaved(false), 2500)

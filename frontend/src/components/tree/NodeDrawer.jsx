@@ -1,6 +1,6 @@
 import { useState, useRef, useEffect } from 'react'
-import Breadcrumb from '../shared/Breadcrumb.jsx'
-import { treeApi } from '../../api/tree.js'
+import Breadcrumb from '../common/Breadcrumb.jsx'
+import treeService from '../../services/treeService.js'
 
 const ANALYZE_STAGES = [
   { key: 'parsing_documents', label: 'Parsing Documents' },
@@ -116,7 +116,7 @@ export default function NodeDrawer({ node, breadcrumb, onClose, onNodeUpdated })
       const { job_id } = await res.json()
       setJobId(job_id)
       // Persist job_id in node data so we can resume on re-open
-      await treeApi.patchNodeData(node.id, { job_id })
+      await treeService.patchNodeData(node.id, { job_id })
       startPoll(job_id)
     } catch (err) {
       setAnalyzing(false)
@@ -128,7 +128,7 @@ export default function NodeDrawer({ node, breadcrumb, onClose, onNodeUpdated })
   async function handleSuggest() {
     setSuggesting(true)
     try {
-      const data = await treeApi.suggestStructure(node.id)
+      const data = await treeService.suggestStructure(node.id)
       setSuggestions(data.suggestions)
       setSelectedSuggestions(data.suggestions.map((_, i) => i))
       setConfirmingSuggestions(true)
@@ -151,7 +151,7 @@ export default function NodeDrawer({ node, breadcrumb, onClose, onNodeUpdated })
         order: i,
       }))
     try {
-      const created = await treeApi.createNodesBatch(toCreate)
+      const created = await treeService.createNodesBatch(toCreate)
       created.forEach(n => onNodeUpdated?.({ __newNode: n }))
       setConfirmingSuggestions(false)
       setSuggestions(null)

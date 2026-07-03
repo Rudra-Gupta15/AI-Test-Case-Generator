@@ -1,12 +1,12 @@
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext.jsx'
-import FilePreviewer, { ImageThumbnail } from '../shared/FilePreviewer.jsx'
-import Mermaid from '../shared/Mermaid.jsx'
-import TreeFolder from './TreeFolder.jsx'
-import { ANALYZE_STAGES } from '../../App.jsx'
+import { useAuth } from '../context/AuthContext.jsx'
+import FilePreviewer, { ImageThumbnail } from '../components/common/FilePreviewer.jsx'
+import Mermaid from '../components/common/Mermaid.jsx'
+import TreeFolder from '../components/legacy/TreeFolder.jsx'
+import { ANALYZE_STAGES } from '../utils/constants.js'
 
-export default function LegacyWorkspaceView() {
+export default function LegacyWorkspace() {
   // Input states
   const navigate = useNavigate();
   const { currentUser, logout } = useAuth();
@@ -202,7 +202,7 @@ export default function LegacyWorkspaceView() {
   }
 
   const deleteProject = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    if (!window.confirm("Are you sure you want to delete this project? This cannot be undone.")) return;
     try {
       const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
       if (response.ok) {

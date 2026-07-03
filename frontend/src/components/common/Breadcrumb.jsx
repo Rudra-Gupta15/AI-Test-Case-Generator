@@ -1,8 +1,5 @@
-/**
- * Breadcrumb — renders Project > Module > Feature chain
- * Props:
- *   items: Array<{ id, name, onClick? }>
- */
+import PropTypes from 'prop-types'
+
 export default function Breadcrumb({ items = [] }) {
   return (
     <nav className="breadcrumb">
@@ -20,4 +17,14 @@ export default function Breadcrumb({ items = [] }) {
       ))}
     </nav>
   )
+}
+
+Breadcrumb.propTypes = {
+  items: PropTypes.arrayOf(
+    PropTypes.shape({
+      id: PropTypes.string,
+      name: PropTypes.string.isRequired,
+      onClick: PropTypes.func,
+    })
+  ),
 }

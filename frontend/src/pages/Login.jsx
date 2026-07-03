@@ -1,14 +1,14 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { useAuth } from '../../context/AuthContext.jsx'
-import { authApi } from '../../api/auth.js'
+import { useAuth } from '../context/AuthContext.jsx'
+import authService from '../services/authService.js'
 
-export default function LoginPage() {
+export default function Login() {
   const { login } = useAuth()
   const navigate = useNavigate()
 
-  const [loginId, setLoginId] = useState('testadmin')
-  const [password, setPassword] = useState('testpassword')
+  const [loginId, setLoginId] = useState('admin001')
+  const [password, setPassword] = useState('admin')
   const [error, setError] = useState('')
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
@@ -19,7 +19,7 @@ export default function LoginPage() {
     setError('')
     setLoading(true)
     try {
-      const data = await authApi.login(loginId.trim(), password)
+      const data = await authService.login(loginId.trim(), password)
       login(data.access_token, data.user)
       if (data.user.role === 'admin') {
         navigate('/admin')
