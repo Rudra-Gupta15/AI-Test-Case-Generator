@@ -34,36 +34,29 @@ export default function AddNodeForm({ projectId, parentId, onCreated, onCancel }
   }
 
   return (
-    <form className="add-node-form" onSubmit={handleCreate}>
-      <div className="add-node-type-row">
+    <form className="vscode-add-form" onSubmit={handleCreate}>
+      <select 
+        value={nodeType} 
+        onChange={e => setNodeType(e.target.value)}
+        disabled={saving}
+      >
         {NODE_TYPES.map(t => (
-          <button
-            key={t}
-            type="button"
-            className={`add-node-type-btn ${nodeType === t ? 'active' : ''}`}
-            onClick={() => setNodeType(t)}
-          >
-            <span>{TYPE_ICONS[t]}</span>
-            <span>{t}</span>
-          </button>
+          <option key={t} value={t}>{t}</option>
         ))}
-      </div>
-      <div className="add-node-input-row">
-        <input
-          type="text"
-          placeholder={`${nodeType} name...`}
-          value={name}
-          onChange={e => setName(e.target.value)}
-          autoFocus
-          maxLength={120}
-        />
-        <button type="submit" className="btn btn-primary btn-sm" disabled={!name.trim() || saving}>
-          {saving ? <span className="spinner-small" /> : '+ Add'}
-        </button>
-        <button type="button" className="btn-ghost btn-sm" onClick={onCancel}>
-          Cancel
-        </button>
-      </div>
+      </select>
+      <input
+        type="text"
+        placeholder="Name..."
+        value={name}
+        onChange={e => setName(e.target.value)}
+        autoFocus
+        maxLength={120}
+        disabled={saving}
+        onKeyDown={e => {
+          if (e.key === 'Escape') onCancel()
+        }}
+      />
+      {saving && <span className="spinner-small" style={{width: 12, height: 12, borderTopColor: '#000'}} />}
     </form>
   )
 }

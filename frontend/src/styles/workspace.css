@@ -1402,7 +1402,22 @@
 .tree-builder-project-name { font-size: 15px; font-weight: 700; color: #0f172a; }
 .tree-builder-domain, .tree-builder-type { font-size: 12px; padding: 2px 8px; border-radius: 20px; background: #ede9fe; color: #7c3aed; font-weight: 500; }
 .tree-builder-type { background: #dbeafe; color: #1d4ed8; }
-.tree-builder-panels { display: grid; grid-template-columns: 280px 1fr 260px; gap: 0; flex: 1; overflow: hidden; }
+.tree-builder-panels {
+  display: grid;
+  grid-template-columns: 320px 1fr 380px;
+  height: calc(100vh - 64px);
+  gap: 0px;
+  background: #000000;
+}
+.tree-left-panel, .tree-right-panel {
+  overflow-y: auto;
+}
+.tree-middle-panel {
+  overflow-y: auto;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
+}
 .tree-loading, .tree-error { display: flex; flex-direction: column; align-items: center; justify-content: center; height: 100vh; gap: 16px; color: #64748b; }
 
 /* Panels */
@@ -1434,8 +1449,20 @@
 .tree-item-add-btn { background: none; border: none; width: 18px; height: 18px; font-size: 14px; cursor: pointer; color: #64748b; display: flex; align-items: center; justify-content: center; flex-shrink: 0; opacity: 0; transition: color 0.1s; }
 .tree-item-row:hover .tree-item-add-btn, .tree-root-node:hover .tree-item-add-btn { opacity: 1; }
 .tree-item-add-btn:hover { color: #0f172a; }
-.tree-item-children { position: relative; margin-left: 20px; }
-.tree-item-children::before { content: ""; position: absolute; left: -12px; top: 0; bottom: 0; width: 1px; background: #cbd5e1; }
+.tree-item-children { position: relative; margin-left: 20px; border-left: 1px solid #cbd5e1; }
+.tree-item-children::before { display: none; } /* removed old line */
+.tree-item-row { position: relative; z-index: 1; }
+.tree-item-row::before {
+  content: "";
+  position: absolute;
+  left: -12px;
+  top: 50%;
+  width: 12px;
+  height: 1px;
+  background: #cbd5e1;
+  z-index: -1;
+}
+.tree-root-node { border: 1px solid #e2e8f0; background: white; margin-bottom: 16px; border-radius: 8px; }
 .tree-empty-hint { text-align: center; padding: 32px 16px; color: #94a3b8; font-size: 13px; line-height: 1.6; }
 
 /* Node type badges */
@@ -1590,30 +1617,34 @@
 .admin-action-btn--danger { color: #ef4444; }
 .admin-action-btn--danger:hover { background: #fef2f2; border-color: #fecaca; }
 
-.tree-left-panel .form-field label { color: #cbd5e1; }
+.tree-left-panel { background: #000000 !important; }
+.tree-left-panel .tree-panel-header { background: #000000; border-bottom: 1px solid #222222; }
+.tree-left-panel .tree-panel-header h3 { color: #ffffff !important; }
+.tree-left-panel .form-field label { color: #aaaaaa; font-weight: 500; }
 .tree-left-panel .form-field input, 
 .tree-left-panel .form-field textarea, 
 .tree-left-panel .form-field select {
-  background: #1e293b;
-  border: 1px solid #334155;
-  color: #f8fafc;
-  box-shadow: inset 0 2px 4px rgba(0,0,0,0.2);
+  background: #111111 !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  border-radius: 8px;
+  padding: 10px 14px;
+  box-shadow: none !important;
 }
 .tree-left-panel .form-field input:focus, 
 .tree-left-panel .form-field textarea:focus, 
 .tree-left-panel .form-field select:focus {
-  border-color: #3b82f6;
-  box-shadow: 0 0 0 3px rgba(59, 130, 246, 0.2);
+  border-color: #ffffff !important;
 }
 .tree-left-panel .left-panel-save-btn {
-  background: linear-gradient(135deg, #3b82f6 0%, #2563eb 100%);
-  border: none;
-  box-shadow: 0 4px 12px rgba(37, 99, 235, 0.3);
-  transition: all 0.2s;
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 600;
+  border-radius: 8px;
+  box-shadow: none !important;
 }
 .tree-left-panel .left-panel-save-btn:hover:not(:disabled) {
-  transform: translateY(-1px);
-  box-shadow: 0 6px 16px rgba(37, 99, 235, 0.4);
+  background: #e2e8f0 !important;
 }
 
 /* Refined Tree UI Overrides */
@@ -1650,8 +1681,20 @@
 .tree-node-badge--requirement { background: #fef9c3; color: #ca8a04; border: 1px solid #fef08a; }
 
 .tree-builder-panels {
-  gap: 1px;
-  background: #e2e8f0;
+  display: grid;
+  grid-template-columns: 320px 1fr 380px;
+  height: calc(100vh - 64px);
+  gap: 0px;
+  background: #000000;
+}
+.tree-left-panel, .tree-right-panel {
+  overflow-y: auto;
+}
+.tree-middle-panel {
+  overflow-y: auto;
+  background: #ffffff;
+  border-left: 1px solid #e2e8f0;
+  border-right: 1px solid #e2e8f0;
 }
 .tree-left-panel, .tree-middle-panel, .tree-right-panel {
   border: none;
@@ -1664,4 +1707,84 @@
 .proj-grid {
   -ms-overflow-style: none;  /* IE and Edge */
   scrollbar-width: none;  /* Firefox */
+}
+\n
+.chat-right-panel {
+  display: flex;
+  flex-direction: column;
+  height: 100%;
+  background: #000000;
+  color: #ffffff;
+}
+.chat-header {
+  padding: 16px 20px;
+  background: #000000;
+  border-bottom: 1px solid #222222;
+  font-weight: 600;
+  color: #ffffff;
+  letter-spacing: 0.05em;
+  font-size: 14px;
+}
+.chat-messages {
+  flex: 1;
+  padding: 20px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 16px;
+}
+.chat-message {
+  max-width: 85%;
+  padding: 12px 16px;
+  border-radius: 12px;
+  font-size: 13px;
+  line-height: 1.5;
+}
+.chat-message.user {
+  align-self: flex-end;
+  background: #ffffff;
+  color: #000000;
+  border-bottom-right-radius: 4px;
+}
+.chat-message.bot {
+  align-self: flex-start;
+  background: #222222;
+  color: #ffffff;
+  border-bottom-left-radius: 4px;
+}
+.chat-input-area {
+  padding: 16px;
+  background: #000000;
+  border-top: 1px solid #222222;
+  display: flex;
+  gap: 10px;
+}
+.chat-input-area input {
+  flex: 1;
+  background: #111111;
+  border: 1px solid #333333;
+  color: #ffffff;
+  padding: 12px 16px;
+  border-radius: 24px;
+  outline: none;
+  font-size: 13px;
+}
+.chat-input-area input:focus {
+  border-color: #ffffff;
+}
+.chat-send-btn {
+  background: #ffffff;
+  color: #000000;
+  border: none;
+  border-radius: 50%;
+  width: 42px;
+  height: 42px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  cursor: pointer;
+  transition: opacity 0.2s;
+}
+.chat-send-btn:hover {
+  opacity: 0.8;
 }

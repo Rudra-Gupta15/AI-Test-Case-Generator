@@ -41,8 +41,8 @@ export default function LeftPanel({ project, onProjectUpdated }) {
   }
 
   return (
-    <div className="tree-left-panel" style={{ background: '#0f172a', borderRight: '1px solid #1e293b' }}>
-      <div className="tree-panel-header" style={{ borderBottom: '1px solid #1e293b', padding: '20px 24px' }}>
+    <div className="tree-left-panel" style={{ background: '#000000', borderRight: '1px solid #222222' }}>
+      <div className="tree-panel-header" style={{ borderBottom: '1px solid #222222', padding: '20px 24px' }}>
         <h3 style={{ color: '#ffffff', fontSize: '14px', letterSpacing: '0.05em' }}>PROJECT DETAILS</h3>
       </div>
       <div className="tree-panel-body left-panel-body">

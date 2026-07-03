@@ -1,5 +1,23 @@
 import { useState } from 'react'
-import AddNodeForm, { TYPE_ICONS } from './AddNodeForm.jsx'
+import AddNodeForm from './AddNodeForm.jsx'
+import { 
+  ChevronRight, ChevronDown, Folder, 
+  FileText, Sparkles, Plus, Rocket, 
+  TestTube2, Bug, CheckCircle, Component, CircleDot
+} from 'lucide-react'
+
+const VSCODE_ICONS = {
+  Module: <Folder size={15} fill="#eab308" color="#ca8a04" />,
+  Feature: <Sparkles size={15} color="#eab308" />,
+  Requirement: <FileText size={15} color="#60a5fa" />,
+  TestSuite: <TestTube2 size={15} color="#4ade80" />,
+  Release: <Rocket size={15} color="#a78bfa" />,
+  Custom: <Component size={15} color="#9ca3af" />,
+  TestCase: <CheckCircle size={15} color="#4ade80" />,
+  Scenario: <FileText size={15} color="#60a5fa" />,
+  Defect: <Bug size={15} color="#f87171" />,
+  Project: <Folder size={15} fill="#0ea5e9" color="#0284c7" />
+}
 
 /**
  * A single tree node rendered recursively.
@@ -22,47 +40,48 @@ function TreeItem({ node, childMap, selectedId, onSelect, onNodeAdded, projectId
   return (
     <div className="tree-item" style={{ '--depth': depth }}>
       <div
-        className={`tree-item-row ${isSelected ? 'selected' : ''}`}
+        className={`vscode-tree-row ${isSelected ? 'selected' : ''}`}
+        style={{ paddingLeft: `${depth * 14 + 12}px` }}
         onClick={() => onSelect(node)}
       >
+        {/* Indent guides logic - simulated via multiple absolute spans */}
+        {Array.from({ length: depth }).map((_, i) => (
+          <span key={i} className="vscode-tree-indent-guide" style={{ left: `${i * 14 + 18}px` }} />
+        ))}
+
         {/* Expand / collapse toggle */}
-        <button
-          className="tree-item-toggle"
+        <div 
+          className="vscode-chevron"
           onClick={e => { e.stopPropagation(); setExpanded(v => !v) }}
           style={{ visibility: hasChildren ? 'visible' : 'hidden' }}
-          aria-label={expanded ? 'Collapse' : 'Expand'}
         >
-          <span style={{ transform: expanded ? 'rotate(90deg)' : 'none', display: 'inline-block', transition: 'transform 0.15s' }}>▶</span>
-        </button>
+          {expanded ? <ChevronDown size={14} /> : <ChevronRight size={14} />}
+        </div>
 
         {/* Icon */}
-        <span className="tree-item-icon">{TYPE_ICONS[node.node_type] || '🔷'}</span>
-
-        {/* Name */}
-        <span className="tree-item-name" title={node.name}>{node.name}</span>
-
-        {/* Type badge */}
-        <span className={`tree-node-badge tree-node-badge--${node.node_type.toLowerCase()}`}>
-          {node.node_type}
+        <span className="vscode-icon">
+          {VSCODE_ICONS[node.node_type] || <CircleDot size={15} color="#9ca3af" />}
         </span>
 
-        {/* Analysis indicator */}
-        {node.data && <span className="tree-item-analyzed" title="Has AI analysis">●</span>}
+        {/* Name */}
+        <span className="vscode-tree-name" title={node.name}>{node.name}</span>
+
+        {/* Type badge (hidden normally in vscode, but let's keep it subtle if we want) */}
+        {/* <span className="vscode-tree-badge">{node.node_type}</span> */}
 
         {/* Add child button */}
         <button
           className="tree-item-add-btn"
           onClick={e => { e.stopPropagation(); setAddingChild(v => !v) }}
           title="Add child node"
-          aria-label="Add child node"
         >
-          +
+          <Plus size={14} />
         </button>
       </div>
 
       {/* Inline add form */}
       {addingChild && (
-        <div style={{ paddingLeft: `${(depth + 1) * 20 + 28}px` }}>
+        <div style={{ paddingLeft: `${(depth + 1) * 14 + 40}px` }}>
           <AddNodeForm
             projectId={projectId}
             parentId={node.id}
@@ -74,7 +93,7 @@ function TreeItem({ node, childMap, selectedId, onSelect, onNodeAdded, projectId
 
       {/* Children */}
       {expanded && children.length > 0 && (
-        <div className="tree-item-children">
+        <div className="tree-children">
           {children.map(child => (
             <TreeItem
               key={child.id}
@@ -125,24 +144,29 @@ export default function MiddlePanel({ project, nodes, selectedNodeId, onSelectNo
       <div className="tree-panel-body">
         {/* Root node — the project itself */}
         <div
-          className={`tree-root-node ${selectedNodeId === '__project__' ? 'selected' : ''}`}
+          className={`vscode-tree-row ${selectedNodeId === '__project__' ? 'selected' : ''}`}
+          style={{ paddingLeft: '12px' }}
           onClick={() => onSelectNode({ id: '__project__', name: project.name, node_type: 'Project' })}
         >
-          <span className="tree-item-icon">🏗</span>
-          <span className="tree-item-name">{project.name}</span>
-          <span className="tree-node-badge tree-node-badge--project">Project</span>
+          <div className="vscode-chevron">
+            <ChevronDown size={14} />
+          </div>
+          <span className="vscode-icon">
+            {VSCODE_ICONS.Project}
+          </span>
+          <span className="vscode-tree-name">{project.name}</span>
           <button
             className="tree-item-add-btn"
             onClick={e => { e.stopPropagation(); setAddingRoot(v => !v) }}
             title="Add top-level node"
           >
-            +
+            <Plus size={14} />
           </button>
         </div>
 
         {/* Add root-level child form */}
         {addingRoot && (
-          <div style={{ paddingLeft: '12px' }}>
+          <div style={{ paddingLeft: '40px' }}>
             <AddNodeForm
               projectId={project.id}
               parentId={null}
