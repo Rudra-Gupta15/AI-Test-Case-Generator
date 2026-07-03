@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import projectService from '../services/projectService.js'
 import ProjectCard from '../components/projects/ProjectCard.jsx'
+import { X } from 'lucide-react'
 
 export default function Projects() {
   const { currentUser, logout } = useAuth()
@@ -17,6 +18,14 @@ export default function Projects() {
   const [newProjectName, setNewProjectName] = useState('')
   const [newProjectDesc, setNewProjectDesc] = useState('')
   const [creating, setCreating] = useState(false)
+
+  // History / Actions Modal State
+  const [historyProject, setHistoryProject] = useState(null)
+  
+  // Edit / Notes Modal State
+  const [editingProject, setEditingProject] = useState(null)
+  const [editProjectName, setEditProjectName] = useState('')
+  const [editProjectNotepad, setEditProjectNotepad] = useState('')
 
   useEffect(() => {
     projectService.list()
@@ -60,6 +69,48 @@ export default function Projects() {
     } catch (err) {
       alert("Failed to create project: " + err.message)
       setCreating(false)
+    }
+  }
+
+  // --- Modal Actions ---
+  const shareProject = async (id) => {
+    try {
+      const response = await fetch(`/api/projects/${id}`)
+      if (response.ok) {
+        const data = await response.json()
+        const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' })
+        const downloadLink = document.createElement('a')
+        downloadLink.href = URL.createObjectURL(blob)
+        downloadLink.download = `project_export_${data.id.substring(0,6)}.json`
+        document.body.appendChild(downloadLink)
+        downloadLink.click()
+        document.body.removeChild(downloadLink)
+      } else {
+        alert('Failed to fetch project for sharing')
+      }
+    } catch (err) {
+      alert('Error sharing project: ' + err.message)
+    }
+  }
+
+  const saveEditProject = async () => {
+    if (!editingProject) return
+    try {
+      const response = await fetch(`/api/projects/${editingProject.id}`, {
+        method: 'PUT',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ name: editProjectName, notepad: editProjectNotepad })
+      })
+      if (response.ok) {
+        setEditingProject(null)
+        setHistoryProject(null)
+        // Refresh project list
+        projectService.list().then(setProjects)
+      } else {
+        alert("Failed to update project")
+      }
+    } catch (err) {
+      alert("Error updating project: " + err.message)
     }
   }
 
@@ -203,13 +254,69 @@ export default function Projects() {
             ) : (
               <div className="proj-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(280px, 1fr))', gap: '20px', overflowY: 'auto', paddingBottom: '40px', alignContent: 'start', flex: 1, paddingRight: '12px' }}>
                 {filtered.map(p => (
-                  <ProjectCard key={p.id} project={p} onClick={() => handleProjectClick(p)} onDelete={handleDeleteProject} />
+                  <ProjectCard 
+                    key={p.id} 
+                    project={p} 
+                    onClick={() => handleProjectClick(p)} 
+                    onDelete={handleDeleteProject}
+                    onHistoryClick={(proj) => setHistoryProject(proj)} 
+                  />
                 ))}
               </div>
             )}
           </div>
         </div>
       </div>
+
+      {/* History / Project Actions Modal */}
+      {historyProject && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1000, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setHistoryProject(null)}>
+          <div style={{ background: 'white', borderRadius: '12px', width: '600px', maxWidth: '90%', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }} onClick={e => e.stopPropagation()}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+              <h2 style={{ margin: 0, fontSize: '20px', fontWeight: 'bold' }}>Project History & Actions</h2>
+              <button onClick={() => setHistoryProject(null)} style={{ background: 'transparent', border: 'none', cursor: 'pointer', color: '#64748b' }}>
+                <X size={20} />
+              </button>
+            </div>
+            
+            <div className="history-card" style={{ padding: '20px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }}>
+              <div>
+                <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>{historyProject.name || 'Unnamed Project'}</h3>
+                <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>
+                  Created: {new Date(historyProject.created_at * 1000).toLocaleString()} | {historyProject.total_cases} Test Cases
+                </p>
+              </div>
+              <div style={{ display: 'flex', gap: '8px' }}>
+                <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); shareProject(historyProject.id); }}>Share</button>
+                <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setEditingProject(historyProject); setEditProjectName(historyProject.name || ''); setEditProjectNotepad(historyProject.notepad || ''); }}>Edit / Notes</button>
+                <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleProjectClick(historyProject); }}>Open</button>
+                <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5', borderRadius: '6px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); handleDeleteProject(historyProject.id, e); setHistoryProject(null); }}>Delete</button>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Edit / Notes Modal */}
+      {editingProject && (
+        <div style={{ position: 'fixed', top: 0, left: 0, right: 0, bottom: 0, background: 'rgba(0,0,0,0.5)', zIndex: 1010, display: 'flex', alignItems: 'center', justifyContent: 'center' }} onClick={() => setEditingProject(null)}>
+          <div style={{ background: 'white', borderRadius: '12px', width: '500px', maxWidth: '90%', padding: '24px', boxShadow: '0 20px 25px -5px rgba(0, 0, 0, 0.1)' }} onClick={e => e.stopPropagation()}>
+            <h2 style={{ margin: '0 0 16px 0', fontSize: '20px', fontWeight: 'bold' }}>Edit Project & Notes</h2>
+            <div style={{ marginBottom: '16px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#334155' }}>Project Name</label>
+              <input type="text" value={editProjectName} onChange={e => setEditProjectName(e.target.value)} style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none' }} />
+            </div>
+            <div style={{ marginBottom: '24px' }}>
+              <label style={{ display: 'block', fontSize: '14px', fontWeight: '600', marginBottom: '8px', color: '#334155' }}>Private Notepad</label>
+              <textarea value={editProjectNotepad} onChange={e => setEditProjectNotepad(e.target.value)} placeholder="Type your personal notes here... (Not shared in exported JSON)" style={{ width: '100%', padding: '10px 12px', borderRadius: '6px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', minHeight: '120px', resize: 'vertical' }} />
+            </div>
+            <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
+              <button style={{ padding: '10px 16px', background: 'white', border: '1px solid #cbd5e1', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }} onClick={() => setEditingProject(null)}>Cancel</button>
+              <button style={{ padding: '10px 16px', background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', fontWeight: '500' }} onClick={saveEditProject}>Save Changes</button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   )
 }

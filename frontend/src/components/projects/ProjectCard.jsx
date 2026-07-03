@@ -21,7 +21,7 @@ function formatDate(ts) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default function ProjectCard({ project, onClick, onDelete }) {
+export default function ProjectCard({ project, onClick, onDelete, onHistoryClick }) {
   const domainIcon = DOMAIN_ICONS[project.domain] || '📁'
   const typeColor  = TYPE_COLORS[project.testing_type] || '#64748b'
 
@@ -33,7 +33,19 @@ export default function ProjectCard({ project, onClick, onDelete }) {
          onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
     >
       <div className="proj-card-top" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div className="proj-card-icon" style={{ fontSize: '24px' }}>{domainIcon}</div>
+        <div 
+          className="proj-card-icon" 
+          style={{ fontSize: '24px', cursor: 'pointer', transition: 'transform 0.2s' }}
+          onClick={(e) => {
+            e.stopPropagation();
+            if (onHistoryClick) onHistoryClick(project);
+          }}
+          title="View Project History"
+          onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
+          onMouseOut={e => e.currentTarget.style.transform = 'scale(1)'}
+        >
+          {domainIcon}
+        </div>
         <div className="proj-card-meta" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
           <button 
             onClick={(e) => { e.stopPropagation(); onDelete?.(project.id, e); }}
@@ -82,4 +94,5 @@ ProjectCard.propTypes = {
   }).isRequired,
   onClick: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  onHistoryClick: PropTypes.func,
 }
