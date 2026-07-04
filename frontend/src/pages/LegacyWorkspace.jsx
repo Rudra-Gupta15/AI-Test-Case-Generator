@@ -122,7 +122,7 @@ export default function LegacyWorkspace() {
   const [sidebarWidth, setSidebarWidth] = useState(380)
   const handleCellClick = (tcId, field) => {
     if (aiSelectionModeTestCaseId !== tcId) return;
-    setAiSelectedParts(prev => 
+    setAiSelectedParts(prev =>
       prev.includes(field) ? prev.filter(p => p !== field) : [...prev, field]
     );
   };
@@ -229,7 +229,7 @@ export default function LegacyWorkspace() {
         const blob = new Blob([JSON.stringify(data, null, 2)], { type: 'application/json' });
         const downloadLink = document.createElement('a');
         downloadLink.href = URL.createObjectURL(blob);
-        downloadLink.download = `project_export_${data.id.substring(0,6)}.json`;
+        downloadLink.download = `project_export_${data.id.substring(0, 6)}.json`;
         document.body.appendChild(downloadLink);
         downloadLink.click();
         document.body.removeChild(downloadLink);
@@ -365,7 +365,7 @@ export default function LegacyWorkspace() {
         }
       }
     });
-    
+
     setSelectedTestCases({});
     alert(`Successfully executed ${selectedIds.length} test cases!`);
   };
@@ -376,7 +376,7 @@ export default function LegacyWorkspace() {
       const token = localStorage.getItem('token');
       const response = await fetch('/api/projects/save', {
         method: 'POST',
-        headers: { 
+        headers: {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
@@ -461,7 +461,7 @@ export default function LegacyWorkspace() {
         setGenerating(false)
         return
       }
-      
+
       if (data.action === 'execute') {
         // Handled immediately
         setJob(prev => {
@@ -726,13 +726,13 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
   const downloadDoc = () => {
     if (!docPreviewHtml) return;
     const blob = new Blob(['\ufeff', docPreviewHtml], {
-        type: 'application/msword'
+      type: 'application/msword'
     });
-    
+
     const downloadLink = document.createElement("a");
     downloadLink.href = URL.createObjectURL(blob);
     downloadLink.download = "test_suite.doc";
-    
+
     document.body.appendChild(downloadLink);
     downloadLink.click();
     document.body.removeChild(downloadLink);
@@ -744,7 +744,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
       <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth }}>
         {/* Resizer Handle */}
-        <div 
+        <div
           onMouseDown={startResizing}
           style={{
             position: 'absolute',
@@ -885,10 +885,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     </div>
                     <div className="tree-children">
                       {Object.keys(treeData).map((sec, idx) => (
-                        <TreeFolder 
-                          key={idx} 
-                          section={sec} 
-                          testCases={treeData[sec]} 
+                        <TreeFolder
+                          key={idx}
+                          section={sec}
+                          testCases={treeData[sec]}
                           selectedView={selectedView}
                           onSelect={(type, id) => setSelectedView({ type, id })}
                         />
@@ -914,26 +914,26 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <stop offset="100%" stopColor="rgba(139,92,246,0.1)" />
                     </linearGradient>
                   </defs>
-                  
+
                   {/* Outer animated rings */}
                   <circle cx="100" cy="100" r="80" fill="none" stroke="url(#ringGrad)" strokeWidth="2" strokeDasharray="10 20" className="spin-slow" />
                   <circle cx="100" cy="100" r="65" fill="none" stroke="url(#ringGrad)" strokeWidth="1" strokeDasharray="50 10" className="spin-slow-reverse" />
-                  
+
                   {/* Center glowing core */}
                   <circle cx="100" cy="100" r="40" fill="url(#histGrad)" opacity="0.2" />
                   <circle cx="100" cy="100" r="25" fill="url(#histGrad)" />
-                  
+
                   {/* Clock hands */}
                   <line x1="100" y1="100" x2="100" y2="80" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
                   <line x1="100" y1="100" x2="115" y2="115" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-                  
+
                   {/* Floating data dots */}
-                  <circle cx="150" cy="50" r="4" fill="#60a5fa" className="float-anim" style={{animationDelay: '0s'}} />
-                  <circle cx="40" cy="130" r="3" fill="#a78bfa" className="float-anim" style={{animationDelay: '1s'}} />
-                  <circle cx="140" cy="160" r="5" fill="#818cf8" className="float-anim" style={{animationDelay: '2s'}} />
+                  <circle cx="150" cy="50" r="4" fill="#60a5fa" className="float-anim" style={{ animationDelay: '0s' }} />
+                  <circle cx="40" cy="130" r="3" fill="#a78bfa" className="float-anim" style={{ animationDelay: '1s' }} />
+                  <circle cx="140" cy="160" r="5" fill="#818cf8" className="float-anim" style={{ animationDelay: '2s' }} />
                 </svg>
               </div>
-              
+
               <h2 style={{ fontSize: '20px', fontWeight: 'bold', background: 'linear-gradient(to right, #93c5fd, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '12px', textAlign: 'center' }}>
                 Project Archives
               </h2>
@@ -1015,7 +1015,9 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 History
               </button>
             </div>
-            <button className="nav-email-btn" onClick={() => setShowCreateProjectModal(true)}>
+            <button className="nav-email-btn" onClick={() => navigate("/project/new/legacy")}>
+              {/* <button className="nav-email-btn" onClick={() => setShowCreateProjectModal(true)}> */}
+
               Create Project
             </button>
           </div>
@@ -1078,7 +1080,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     <p>Upload any requirements or spec documents (Optional)</p>
                   </div>
                   <div className="sleek-upload-list">
-                    
+
                     {/* BRD */}
                     <div className={`sleek-list-item ${brd ? 'has-file' : ''}`}>
                       <div className="sleek-item-left">
@@ -1172,7 +1174,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🎨</span> Design & UI References</h3>
                     <p>Upload mockup images or link your Figma designs (Optional)</p>
                   </div>
-                  
+
                   <div className="sleek-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
                     <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0' }}>
                       <span className="sleek-item-label">Reference Mockups (Images)</span>
@@ -1204,7 +1206,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <label>Figma API Token</label>
                       <div className="sleek-input-wrapper">
                         <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
-                        <button type="button" className="sleek-icon-btn" style={{border: 'none', background: 'transparent', width: 'auto'}} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
+                        <button type="button" className="sleek-icon-btn" style={{ border: 'none', background: 'transparent', width: 'auto' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
                           {showFigmaToken ? '🙈' : '👁️'}
                         </button>
                       </div>
@@ -1496,7 +1498,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               <>
                 {/* Search and Filters */}
                 <div className="filter-bar-monochrome" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
-                  <button 
+                  <button
                     className="secondary-monochrome-btn"
                     onClick={() => {
                       const allSelected = cases.every(tc => selectedTestCases[tc.id]);
@@ -1508,8 +1510,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     }}
                     style={{ padding: '6px 12px', fontSize: '13px', margin: 0 }}
                   >
-                    <input 
-                      type="checkbox" 
+                    <input
+                      type="checkbox"
                       checked={cases.length > 0 && cases.every(tc => selectedTestCases[tc.id])}
                       readOnly
                       style={{ marginRight: '6px' }}
@@ -1563,8 +1565,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             <thead>
                               <tr>
                                 <th style={{ width: '40px', textAlign: 'center' }}>
-                                  <input 
-                                    type="checkbox" 
+                                  <input
+                                    type="checkbox"
                                     onChange={(e) => {
                                       const checked = e.target.checked;
                                       const next = { ...selectedTestCases };
@@ -1598,9 +1600,9 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                               {casesBySection[sectionName].map((tc) => (
                                 <tr key={tc.id} style={{ backgroundColor: selectedTestCases[tc.id] ? '#fef3c7' : 'inherit' }}>
                                   <td style={{ textAlign: 'center', verticalAlign: 'middle' }}>
-                                    <input 
-                                      type="checkbox" 
-                                      checked={!!selectedTestCases[tc.id]} 
+                                    <input
+                                      type="checkbox"
+                                      checked={!!selectedTestCases[tc.id]}
                                       onChange={(e) => setSelectedTestCases(prev => ({ ...prev, [tc.id]: e.target.checked }))}
                                       style={{ cursor: 'pointer', transform: 'scale(1.2)' }}
                                     />
@@ -1608,15 +1610,15 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                   <td style={{ textAlign: 'center', whiteSpace: 'nowrap' }}>
                                     {aiSelectionModeTestCaseId === tc.id ? (
                                       <div style={{ display: 'flex', gap: '4px', justifyContent: 'center' }}>
-                                        <button 
-                                          className="btn btn-primary" 
+                                        <button
+                                          className="btn btn-primary"
                                           style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                                           onClick={() => setEditingAITestCase(tc)}
                                         >
                                           Continue ({aiSelectedParts.length})
                                         </button>
-                                        <button 
-                                          className="btn btn-secondary" 
+                                        <button
+                                          className="btn btn-secondary"
                                           style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#94a3b8', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                                           onClick={() => {
                                             setAiSelectionModeTestCaseId(null);
@@ -1627,8 +1629,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                         </button>
                                       </div>
                                     ) : (
-                                      <button 
-                                        className="btn btn-secondary" 
+                                      <button
+                                        className="btn btn-secondary"
                                         style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
                                         onClick={() => {
                                           setAiSelectionModeTestCaseId(tc.id);
@@ -1658,9 +1660,9 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                     fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
                                     color:
                                       tc.status === 'Pass' ? '#16a34a' :
-                                      tc.status === 'Fail' ? '#dc2626' :
-                                      tc.status === 'Blocked' ? '#ca8a04' :
-                                      tc.status === 'Skipped' ? '#6b7280' : 'inherit'
+                                        tc.status === 'Fail' ? '#dc2626' :
+                                          tc.status === 'Blocked' ? '#ca8a04' :
+                                            tc.status === 'Skipped' ? '#6b7280' : 'inherit'
                                   })} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)}>
                                     {tc.status || 'N/A'}
                                   </td>
@@ -1716,7 +1718,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-                <button onClick={() => setShowPersonalizeModal(false)} style={{ margin: 0, padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseOver={(e) => {e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155'}} onMouseOut={(e) => {e.target.style.background = 'transparent'; e.target.style.color = '#64748b'}}>
+                <button onClick={() => setShowPersonalizeModal(false)} style={{ margin: 0, padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155' }} onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b' }}>
                   Cancel
                 </button>
                 <button
@@ -1780,8 +1782,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               </div>
             </div>
             <div className="preview-modal-body" style={{ padding: 0, height: 'calc(100% - 60px)', background: '#fff' }}>
-              <iframe 
-                srcDoc={docPreviewHtml} 
+              <iframe
+                srcDoc={docPreviewHtml}
                 style={{ width: '100%', height: '100%', border: 'none' }}
                 title="Document Preview"
               />
@@ -1800,18 +1802,18 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
             <div className="preview-modal-body" style={{ padding: '20px' }}>
               <div className="form-group" style={{ marginBottom: '16px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#334155' }}>Project Name</label>
-                <input 
-                  type="text" 
-                  value={editProjectName} 
-                  onChange={(e) => setEditProjectName(e.target.value)} 
+                <input
+                  type="text"
+                  value={editProjectName}
+                  onChange={(e) => setEditProjectName(e.target.value)}
                   style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1' }}
                 />
               </div>
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#334155' }}>Notepad (Next Day Plan)</label>
-                <textarea 
-                  value={editProjectNotepad} 
-                  onChange={(e) => setEditProjectNotepad(e.target.value)} 
+                <textarea
+                  value={editProjectNotepad}
+                  onChange={(e) => setEditProjectNotepad(e.target.value)}
                   placeholder="Write down what you will do next..."
                   style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '150px', resize: 'vertical' }}
                 />
@@ -1845,18 +1847,18 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               )}
               <div className="form-group" style={{ marginBottom: '24px' }}>
                 <label style={{ display: 'block', marginBottom: '8px', fontWeight: '500', color: '#334155' }}>What would you like to change?</label>
-                <textarea 
-                  value={aiEditPrompt} 
-                  onChange={(e) => setAiEditPrompt(e.target.value)} 
+                <textarea
+                  value={aiEditPrompt}
+                  onChange={(e) => setAiEditPrompt(e.target.value)}
                   placeholder="e.g., 'Make the expected result more detailed' or 'Change the precondition to require an admin user'"
                   style={{ width: '100%', padding: '10px', borderRadius: '6px', border: '1px solid #cbd5e1', minHeight: '100px', resize: 'vertical' }}
                   disabled={isAiEditing}
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '10px' }}>
-                <button 
-                  className="btn" 
-                  style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: 'none' }} 
+                <button
+                  className="btn"
+                  style={{ padding: '8px 16px', background: '#f1f5f9', color: '#475569', border: 'none' }}
                   onClick={() => {
                     setEditingAITestCase(null);
                     setAiSelectionModeTestCaseId(null);
@@ -1866,9 +1868,9 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 >
                   Cancel
                 </button>
-                <button 
-                  className="btn btn-primary" 
-                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }} 
+                <button
+                  className="btn btn-primary"
+                  style={{ padding: '8px 16px', display: 'flex', alignItems: 'center', gap: '8px' }}
                   onClick={submitAiEdit}
                   disabled={isAiEditing || !aiEditPrompt.trim()}
                 >
@@ -1895,11 +1897,11 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               </p>
               <div style={{ marginBottom: '20px' }}>
                 <label style={{ display: 'block', fontSize: '13px', color: '#334155', marginBottom: '8px', fontWeight: '600' }}>Project Name</label>
-                <input 
-                  type="text" 
-                  placeholder="e.g. Authentication Module" 
-                  value={createProjectName} 
-                  onChange={(e) => setCreateProjectName(e.target.value)} 
+                <input
+                  type="text"
+                  placeholder="e.g. Authentication Module"
+                  value={createProjectName}
+                  onChange={(e) => setCreateProjectName(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleCreateProject()}
                   autoFocus
                   style={{ width: '100%', border: '1px solid #cbd5e1', borderRadius: '8px', padding: '12px', fontSize: '14px', color: '#1e293b', outline: 'none', transition: 'border-color 0.2s' }}
@@ -1908,15 +1910,15 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 />
               </div>
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
-                <button 
-                  onClick={() => setShowCreateProjectModal(false)} 
+                <button
+                  onClick={() => setShowCreateProjectModal(false)}
                   style={{ padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
-                  onMouseOver={(e) => {e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155'}}
-                  onMouseOut={(e) => {e.target.style.background = 'transparent'; e.target.style.color = '#64748b'}}
+                  onMouseOver={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155' }}
+                  onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b' }}
                 >
                   Cancel
                 </button>
-                <button 
+                <button
                   onClick={handleCreateProject}
                   disabled={!createProjectName.trim()}
                   style={{ padding: '8px 20px', background: !createProjectName.trim() ? '#94a3b8' : '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', fontSize: '14px', fontWeight: '600', cursor: !createProjectName.trim() ? 'not-allowed' : 'pointer', transition: 'background-color 0.2s ease', boxShadow: !createProjectName.trim() ? 'none' : '0 2px 4px rgba(59, 130, 246, 0.3)' }}

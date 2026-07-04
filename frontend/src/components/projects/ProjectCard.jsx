@@ -7,12 +7,12 @@ const DOMAIN_ICONS = {
 }
 
 const TYPE_COLORS = {
-  'Functional':    '#6366f1',
-  'Regression':    '#f59e0b',
-  'Integration':   '#10b981',
-  'Performance':   '#ef4444',
-  'Security':      '#8b5cf6',
-  'Exploratory':   '#3b82f6',
+  'Functional': '#6366f1',
+  'Regression': '#f59e0b',
+  'Integration': '#10b981',
+  'Performance': '#ef4444',
+  'Security': '#8b5cf6',
+  'Exploratory': '#3b82f6',
 }
 
 function formatDate(ts) {
@@ -23,18 +23,18 @@ function formatDate(ts) {
 
 export default function ProjectCard({ project, onClick, onDelete, onHistoryClick }) {
   const domainIcon = DOMAIN_ICONS[project.domain] || '📁'
-  const typeColor  = TYPE_COLORS[project.testing_type] || '#64748b'
+  const typeColor = TYPE_COLORS[project.testing_type] || '#64748b'
 
   return (
     <div className="proj-card" onClick={onClick} role="button" tabIndex={0}
-         onKeyDown={e => e.key === 'Enter' && onClick()}
-         style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', borderRadius: '16px', padding: '24px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', aspectRatio: '1 / 1' }}
-         onMouseOver={e => e.currentTarget.style.borderColor = '#3b82f6'}
-         onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
+      onKeyDown={e => e.key === 'Enter' && onClick()}
+      style={{ background: '#ffffff', border: '1px solid #e2e8f0', boxShadow: '0 2px 4px rgba(0,0,0,0.05)', borderRadius: '16px', padding: '24px', cursor: 'pointer', transition: 'all 0.2s', display: 'flex', flexDirection: 'column', aspectRatio: '1 / 1' }}
+      onMouseOver={e => e.currentTarget.style.borderColor = '#3b82f6'}
+      onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}
     >
       <div className="proj-card-top" style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '12px' }}>
-        <div 
-          className="proj-card-icon" 
+        <div
+          className="proj-card-icon"
           style={{ fontSize: '24px', transition: 'transform 0.2s' }}
           title="Open Project"
           onMouseOver={e => e.currentTarget.style.transform = 'scale(1.1)'}
@@ -43,7 +43,7 @@ export default function ProjectCard({ project, onClick, onDelete, onHistoryClick
           {domainIcon}
         </div>
         <div className="proj-card-meta" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-          <button 
+          <button
             onClick={(e) => { e.stopPropagation(); onDelete?.(project.id, e); }}
             style={{ background: 'transparent', border: 'none', color: '#cbd5e1', cursor: 'pointer', padding: '4px 6px', borderRadius: '4px', display: 'flex', alignItems: 'center', transition: 'all 0.2s' }}
             onMouseOver={e => { e.currentTarget.style.color = '#ef4444'; e.currentTarget.style.background = '#fef2f2'; }}
@@ -74,6 +74,7 @@ export default function ProjectCard({ project, onClick, onDelete, onHistoryClick
         )}
       </div>
     </div>
+
   )
 }
 

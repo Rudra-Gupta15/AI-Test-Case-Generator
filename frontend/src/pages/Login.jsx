@@ -13,24 +13,37 @@ export default function Login() {
   const [loading, setLoading] = useState(false)
   const [showPassword, setShowPassword] = useState(false)
 
+  // async function handleSubmit(e) {
+  //   e.preventDefault()
+  //   if (!loginId.trim() || !password) return
+  //   setError('')
+  //   setLoading(true)
+  //   try {
+  //     const data = await authService.login(loginId.trim(), password)
+  //     login(data.access_token, data.user)
+  //     if (data.user.role === 'admin') {
+  //       navigate('/admin')
+  //     } else {
+  //       navigate('/projects')
+  //     }
+  //   } catch (err) {
+  //     setError(err.message || 'Login failed. Check your credentials.')
+  //   } finally {
+  //     setLoading(false)
+  //   }
+  // }
   async function handleSubmit(e) {
-    e.preventDefault()
-    if (!loginId.trim() || !password) return
-    setError('')
-    setLoading(true)
-    try {
-      const data = await authService.login(loginId.trim(), password)
-      login(data.access_token, data.user)
-      if (data.user.role === 'admin') {
-        navigate('/admin')
-      } else {
-        navigate('/projects')
-      }
-    } catch (err) {
-      setError(err.message || 'Login failed. Check your credentials.')
-    } finally {
-      setLoading(false)
-    }
+    e.preventDefault();
+
+    // Temporary login (skip backend)
+    const fakeUser = {
+      id: 1,
+      name: "Admin",
+      role: "admin",
+    };
+    login("temporary-token", fakeUser);
+
+    navigate("/admin");
   }
 
   return (
@@ -42,8 +55,8 @@ export default function Login() {
           <div className="login-logo">
             <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
               <rect width="36" height="36" rx="10" fill="url(#lg1)" />
-              <path d="M10 18h16M18 10v16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-              <path d="M13 13l10 10M23 13L13 23" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round"/>
+              <path d="M10 18h16M18 10v16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
+              <path d="M13 13l10 10M23 13L13 23" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" />
               <defs>
                 <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
                   <stop stopColor="#6366f1" />

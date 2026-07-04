@@ -17,6 +17,9 @@ export default function Projects() {
   const [newProjectDesc, setNewProjectDesc] = useState('')
   const [creating, setCreating] = useState(false)
 
+  // new form poup
+  const [showCreatePopup, setShowCreatePopup] = useState(false)
+
   useEffect(() => {
     projectService.list()
       .then(setProjects)
@@ -72,8 +75,9 @@ export default function Projects() {
   return (
     <div className="app-window step-1">
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
-      <div className="app-sidebar" style={{ width: '420px', flexBasis: '420px', minWidth: '420px', display: 'flex', flexDirection: 'column' }}>
-        {/* Sidebar Brand Header */}
+
+      {/* <div className="app-sidebar" style={{ width: '420px', flexBasis: '420px', minWidth: '420px', display: 'flex', flexDirection: 'column' }}>
+        Sidebar Brand Header
         <div style={{ padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%', marginBottom: '24px' }}>
           <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '160px', height: 'auto', objectFit: 'contain' }} />
         </div>
@@ -124,7 +128,7 @@ export default function Projects() {
         <div className="sidebar-bottom">
           <span className="help-icon">❔</span> Help & Documentation
         </div>
-      </div>
+      </div>  */}
 
       <div className="app-main-content step-1" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc' }}>
         {/* Floating Capsule Navbar */}
@@ -158,9 +162,9 @@ export default function Projects() {
         {/* Dashboard Main Content */}
         <div className="main-step-container" style={{ display: 'flex', maxWidth: '100%', margin: '0', padding: '0 48px 48px 48px', flex: 1, overflow: 'hidden' }}>
           <div style={{ flex: '1', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
-            <div className="main-step-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'left' }}>
+            {/* <div className="main-step-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'left' }}>
               <div>
-                <h2 style={{ fontSize: '28px', margin: '0 0 8px 0', color: '#0f172a', fontWeight: 'bold' }}>Your Projects</h2>
+                <h2 style={{ fontSize: '28px', margin: '0 0 8px 0', color: '#0f172a', fontWeight: 'bold' }}>Projects List</h2>
                 <p style={{ fontSize: '14px', margin: 0, color: '#64748b' }}>Select an existing project to continue.</p>
               </div>
               <div className="proj-search-wrap" style={{ margin: 0, width: '300px', position: 'relative', background: 'transparent', border: 'none', padding: 0 }}>
@@ -173,7 +177,216 @@ export default function Projects() {
                   style={{ width: '100%', padding: '10px 12px 10px 36px', borderRadius: '8px', border: '1px solid #cbd5e1', fontSize: '14px', outline: 'none', background: '#ffffff', color: '#0f172a', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}
                 />
               </div>
-            </div>
+            </div> */}
+
+            {/* Project Button created */}
+           <div
+  className="main-step-header"
+  style={{
+    marginBottom: "1.5rem",
+    display: "flex",
+    justifyContent: "space-between",
+    alignItems: "flex-end",
+    textAlign: "left"
+  }}
+>
+  {/* Left */}
+  <div>
+    <h2
+      style={{
+        fontSize: "28px",
+        margin: "0 0 8px 0",
+        color: "#0f172a",
+        fontWeight: "bold"
+      }}
+    >
+      Projects List
+    </h2>
+
+    <p
+      style={{
+        fontSize: "14px",
+        margin: 0,
+        color: "#64748b"
+      }}
+    >
+      Select an existing project to continue.
+    </p>
+  </div>
+
+  {/* Right */}
+ <div
+  style={{
+    display: "flex",
+    alignItems: "center",
+    gap: "12px"
+  }}
+>
+  <div className="proj-search-wrap">
+    <span
+      style={{
+        position: "absolute",
+        left: "12px",
+        top: "50%",
+        transform: "translateY(-50%)",
+        color: "#94a3b8"
+      }}
+    >
+      🔍
+    </span>
+
+    <input
+      type="text"
+      placeholder="Search projects..."
+      value={search}
+      onChange={(e) => setSearch(e.target.value)}
+      style={{
+        width: "100%",
+        padding: "10px 12px 10px 36px",
+        borderRadius: "8px",
+        border: "1px solid #cbd5e1",
+        fontSize: "14px",
+        outline: "none",
+        background: "#ffffff",
+        color: "#d9d9d9ff"
+      }}
+    />
+  </div>
+
+  <button
+    onClick={() => setShowCreatePopup(true)}
+    style={{
+      background: "#2563eb",
+      color: "#fff",
+      border: "none",
+      padding: "10px 18px",
+      borderRadius: "8px",
+      cursor: "pointer",
+      fontWeight: "600"
+    }}
+  >
+    + Create Project
+  </button>
+
+  {/* <button
+  onClick={() => navigate("/project/new/legacy")}
+  style={{
+    background: "#2563eb",
+    color: "#fff",
+    border: "none",
+    padding: "10px 18px",
+    borderRadius: "8px",
+    cursor: "pointer",
+    fontWeight: "600"
+  }}
+>
+  + Create Project
+</button> */}
+</div>
+           </div>
+
+            {/* pop up created  */}
+
+            {showCreatePopup && (
+
+              <div
+                style={{
+                  position: "fixed",
+                  top: 0,
+                  left: 0,
+                  width: "100%",
+                  height: "100%",
+                  background: "rgba(0,0,0,.4)",
+                  display: "flex",
+                  justifyContent: "center",
+                  alignItems: "center",
+                  zIndex: 999
+                }}
+                onClick={() => setShowCreatePopup(false)}
+              >
+
+                <div
+                  onClick={(e) => e.stopPropagation()}
+                  style={{
+                    width: "500px",
+                    background: "#fff",
+                    borderRadius: "16px",
+                    padding: "30px",
+                    boxShadow: "0 20px 60px rgba(0,0,0,.2)"
+                  }}
+                >
+
+                  <h2>Create Project</h2>
+
+                  <form onSubmit={handleCreateProject}>
+
+                    <input
+                      type="text"
+                      placeholder="Project Name"
+                      value={newProjectName}
+                      onChange={(e) => setNewProjectName(e.target.value)}
+                      style={{
+                        width: "100%",
+                        padding: "12px",
+                        marginTop: "20px",
+                        borderRadius: "8px",
+                        border: "1px solid #ddd"
+                      }}
+                    />
+
+                    <textarea
+                      placeholder="Description"
+                      value={newProjectDesc}
+                      onChange={(e) => setNewProjectDesc(e.target.value)}
+                      style={{
+                        width: "100%",
+                        height: "120px",
+                        padding: "12px",
+                        marginTop: "15px",
+                        borderRadius: "8px",
+                        border: "1px solid #ddd"
+                      }}
+                    />
+
+                    <div
+                      style={{
+                        display: "flex",
+                        justifyContent: "flex-end",
+                        gap: "10px",
+                        marginTop: "20px"
+                      }}
+                    >
+
+                      <button
+                        type="button"
+                        onClick={() => setShowCreatePopup(false)}
+                      >
+                        Cancel
+                      </button>
+
+                      <button
+                        type="submit"
+                        style={{
+                          background: "#2563eb",
+                          color: "#fff",
+                          padding: "10px 20px",
+                          border: "none",
+                          borderRadius: "8px"
+                        }}
+                      >
+                        {creating ? "Creating..." : "Create Project"}
+                      </button>
+
+                    </div>
+
+                  </form>
+
+                </div>
+
+              </div>
+
+            )}
+
 
             {loading ? (
               <div className="proj-loading" style={{ color: '#64748b', textAlign: 'center', padding: '40px' }}>
@@ -204,10 +417,10 @@ export default function Projects() {
             ) : (
               <div className="proj-grid" style={{ display: 'grid', gridTemplateColumns: 'repeat(auto-fill, 240px)', gap: '20px', overflowY: 'auto', paddingBottom: '40px', alignContent: 'start', flex: 1, paddingRight: '12px' }}>
                 {filtered.map(p => (
-                  <ProjectCard 
-                    key={p.id} 
-                    project={p} 
-                    onClick={() => handleProjectClick(p)} 
+                  <ProjectCard
+                    key={p.id}
+                    project={p}
+                    onClick={() => handleProjectClick(p)}
                     onDelete={handleDeleteProject}
                   />
                 ))}
