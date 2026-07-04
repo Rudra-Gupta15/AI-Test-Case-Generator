@@ -28,11 +28,7 @@ export default function Projects() {
   }, [])
 
   function handleProjectClick(project) {
-    if (project.is_legacy) {
-      navigate(`/project/${project.id}/legacy`)
-    } else {
-      navigate(`/project/${project.id}/build`)
-    }
+    navigate(`/project/${project.id}/legacy`)
   }
 
   async function handleDeleteProject(projectId, e) {
@@ -56,9 +52,9 @@ export default function Projects() {
         description: newProjectDesc.trim() || undefined,
         testing_type: 'Functional',
         domain: 'General',
-        is_legacy: false
+        is_legacy: true
       })
-      navigate(`/project/${p.id}/build`)
+      navigate(`/project/${p.id}/legacy`)
     } catch (err) {
       alert("Failed to create project: " + err.message)
       setCreating(false)
@@ -131,36 +127,34 @@ export default function Projects() {
       </div>  */}
 
       <div className="app-main-content step-1" style={{ display: 'flex', flexDirection: 'column', height: '100vh', background: '#f8fafc', padding: 0, alignItems: 'stretch' }}>
-        {/* Floating Capsule Navbar */} 
-        <div className="floating-navbar-container" style={{ padding: '16px 24px 8px 24px' }}>
-          <div className="floating-navbar" style={{ maxWidth: '100%', margin: 0, padding: '12px 24px' }}>
+        {/* Full-width Rectangular Navbar */} 
+        <div className="floating-navbar-container">
+          <div className="floating-navbar" style={{ padding: '16px 24px' }}>
             <div className="nav-brand" style={{ gap: '10px' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/Logo.png" alt="Logo" style={{ height: '24px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+                <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
               </div>
               <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
-            <div className="nav-links">
-              <button className="nav-link-btn active">Dashboard</button>
-            </div>
+
             <div style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
               <span style={{ color: '#94a3b8', fontSize: '13px', display: 'flex', alignItems: 'center' }}>
                 👤 {currentUser?.login_id}
               </span>
               {currentUser?.role === 'admin' && (
-                <button className="nav-email-btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '6px 12px' }} onClick={() => navigate('/admin')}>
+                <button className="nav-email-btn" style={{ background: 'rgba(255,255,255,0.1)', color: 'white', padding: '8px 16px' }} onClick={() => navigate('/admin')}>
                   Admin Panel
                 </button>
               )}
-              <button className="nav-email-btn" style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px' }} onClick={() => { logout(); navigate('/login') }}>
+              <button className="nav-email-btn" style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px' }} onClick={() => { logout(); navigate('/login') }}>
                 Sign Out
               </button>
-            </div>~
+            </div>
           </div>
         </div>
 
         {/* Dashboard Main Content */}
-        <div className="main-step-container" style={{ display: 'flex', maxWidth: '100%', margin: '0', padding: '0 24px 24px 24px', flex: 1, overflow: 'hidden' }}>
+        <div className="main-step-container" style={{ display: 'flex', maxWidth: '100%', margin: '0', padding: '24px 24px 24px 24px', flex: 1, overflow: 'hidden' }}>
           <div style={{ flex: '1', display: 'flex', flexDirection: 'column', minWidth: 0 }}>
             {/* <div className="main-step-header" style={{ marginBottom: '1.5rem', display: 'flex', justifyContent: 'space-between', alignItems: 'flex-end', textAlign: 'left' }}>
               <div>

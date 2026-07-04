@@ -433,20 +433,20 @@ body {
 .app-main-content {
   background: var(--bg-light);
   color: var(--text-dark);
-  padding: 40px 60px 48px 60px; /* Aligned exactly with left sidebar top padding */
+  padding: 0; /* Changed from 40px 60px 48px 60px to 0 for full-width navbar */
   height: 100vh;
   display: flex;
   flex-direction: column;
   overflow-y: auto; /* Make right side scrollable */
 }
 
-/* Floating Capsule Navbar */
+/* Full-width Rectangular Navbar */
 .floating-navbar-container {
   display: flex;
   justify-content: center;
   width: 100%;
-  margin-bottom: 16px;
-  margin-top: -12px;
+  margin-bottom: 0;
+  margin-top: 0;
   flex-shrink: 0;
 }
 
@@ -454,11 +454,11 @@ body {
   flex: 1;
   overflow-y: auto;
   background: var(--bg-light);
-  padding: 40px 60px;
+  padding: 0; /* Changed from 40px 60px to 0 for full-width navbar */
   position: relative;
   display: flex;
   flex-direction: column;
-  align-items: center;
+  align-items: stretch; /* Stretch children full-width */
 }
 
 .floating-navbar {
@@ -466,13 +466,14 @@ body {
   align-items: center;
   justify-content: space-between;
   background: #18181b; /* Dark Zinc/Black */
-  border-radius: 9999px;
-  padding: 8px 16px;
-  min-height: 52px;
+  border-radius: 0px; /* Normal rectangle */
+  padding: 16px 60px; /* Aligned with sidebar content padding */
+  min-height: 64px;
   width: 100%;
-  max-width: 760px; /* Increased to fit labels without overflow */
-  box-shadow: 0 10px 25px -5px rgba(0, 0, 0, 0.12), 0 8px 10px -6px rgba(0, 0, 0, 0.12);
-  transition: transform 0.2s cubic-bezier(0.4, 0, 0.2, 1), box-shadow 0.2s ease;
+  max-width: 100%; /* Spans full width */
+  border-bottom: 1px solid #27272a; /* Dark Zinc border */
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
+  transition: border-color 0.2s ease;
 }
 
 .nav-brand {
@@ -483,7 +484,7 @@ body {
 
 .nav-brand-name {
   color: #ffffff;
-  font-size: 11px;
+  font-size: 13px;
   font-weight: 800;
   letter-spacing: 0.1em;
   text-transform: uppercase;
@@ -491,8 +492,7 @@ body {
 }
 
 .floating-navbar:hover {
-  transform: translateY(-1px);
-  box-shadow: 0 12px 30px -5px rgba(0, 0, 0, 0.18), 0 10px 12px -6px rgba(0, 0, 0, 0.18);
+  box-shadow: 0 1px 3px 0 rgba(0, 0, 0, 0.1), 0 1px 2px 0 rgba(0, 0, 0, 0.06);
 }
 
 .nav-logo-circle {
@@ -552,7 +552,7 @@ body {
   font-size: 13px;
   font-weight: 600;
   padding: 8px 20px;
-  border-radius: 9999px;
+  border-radius: 8px; /* Changed from 9999px to 8px to match rectangular design */
   cursor: pointer;
   transition: background-color 0.15s ease, transform 0.1s ease;
   white-space: nowrap;
@@ -568,7 +568,16 @@ body {
 
 .main-step-container {
   width: 100%;
-  padding-bottom: 40px;
+  padding: 32px 60px 48px 60px; /* Replaced app-main-content padding here */
+}
+
+@media (max-width: 1024px) {
+  .main-step-container {
+    padding: 24px 24px 32px 24px; /* Mobile responsive padding */
+  }
+  .floating-navbar {
+    padding: 16px 24px; /* Less horizontal padding on mobile/tablet */
+  }
 }
 
 .main-step-container.step-1,
@@ -961,7 +970,7 @@ input[type="text"]:focus {
   .app-main-content {
     height: auto;
     overflow: visible;
-    padding: 32px 24px;
+    padding: 0; /* Changed from 32px 24px to 0 for full-width navbar */
   }
   
   .vertical-stepper {

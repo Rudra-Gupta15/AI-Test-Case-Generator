@@ -285,6 +285,7 @@ export default function NewProjectForm() {
         domain: form.domain,
         testing_type: form.testing_type,
         methodology: form.methodology,
+        is_legacy: true,
       })
 
       // 2. Batch create nodes if there are any
@@ -304,8 +305,8 @@ export default function NewProjectForm() {
         }
       }
 
-      // Navigate to tree builder page with real data
-      navigate(`/project/${project.id}/build`)
+      // Navigate to legacy workspace
+      navigate(`/project/${project.id}/legacy`)
     } catch (err) {
       setError(err.message || 'Failed to create project')
       setSaving(false)

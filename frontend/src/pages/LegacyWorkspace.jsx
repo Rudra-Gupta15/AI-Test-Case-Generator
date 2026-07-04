@@ -30,6 +30,7 @@ export default function LegacyWorkspace() {
   const [selectedView, setSelectedView] = useState({ type: 'all', id: null })
   const [generating, setGenerating] = useState(false)
   const [step, setStep] = useState(1) // 1 = Upload, 2 = Analysis, 3 = Test Report
+  const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('features') // Step 2 active tab
   const [previewFile, setPreviewFile] = useState(null) // Document preview state
   const [docPreviewHtml, setDocPreviewHtml] = useState(null)
@@ -198,7 +199,7 @@ export default function LegacyWorkspace() {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
-        setStep(3)
+        setStep(1)
       } else {
         alert("Failed to load project")
       }
@@ -743,47 +744,33 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
   return (
     <div className={`app-window step-${step}`}>
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
-      <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth }}>
-        {/* Resizer Handle */}
-        <div
-          onMouseDown={startResizing}
-          style={{
-            position: 'absolute',
-            top: 0,
-            right: 0,
-            width: '6px',
-            height: '100%',
-            cursor: 'col-resize',
-            zIndex: 100,
-            background: 'transparent'
-          }}
-          onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
-          onMouseOut={(e) => e.target.style.background = 'transparent'}
-        />
+      {step === 3 && !sidebarCollapsed && (
+        <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth }}>
+          {/* Resizer Handle */}
+          <div
+            onMouseDown={startResizing}
+            style={{
+              position: 'absolute',
+              top: 0,
+              right: 0,
+              width: '6px',
+              height: '100%',
+              cursor: 'col-resize',
+              zIndex: 100,
+              background: 'transparent'
+            }}
+            onMouseOver={(e) => e.target.style.background = 'rgba(255,255,255,0.1)'}
+            onMouseOut={(e) => e.target.style.background = 'transparent'}
+          />
 
-        {/* Sidebar Brand Header */}
-        {step !== 3 && (
-          <div style={{ padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%', marginBottom: '24px' }}>
-            <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '160px', height: 'auto', objectFit: 'contain' }} />
-          </div>
-        )}
-
-        {/* Step-Specific Sidebar Content */}
-        {/* Active Project Indicator */}
-        {job?.name && (
-          <div style={{ padding: step === 3 ? '0' : '24px 0 0 0', marginTop: step === 3 ? '-16px' : '0' }}>
-            <div className="active-project-card">
-              <div style={{ position: 'relative', width: '10px', height: '10px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                <div className="pulse-ring"></div>
-                <div className="active-project-dot"></div>
-              </div>
-              <div style={{ overflow: 'hidden', zIndex: 1 }}>
-                <div style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '1px', color: '#94a3b8', fontWeight: '600', marginBottom: '4px' }}>Active Workspace</div>
-                <div style={{ fontSize: '15px', color: '#ffffff', fontWeight: '600', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', letterSpacing: '0.2px' }}>{job.name}</div>
-              </div>
+          {/* Sidebar Brand Header */}
+          {step !== 3 && (
+            <div style={{ padding: '0', display: 'flex', alignItems: 'center', justifyContent: 'flex-start', width: '100%', marginBottom: '24px' }}>
+              <img src="/Logo.png" alt="Prevoyance IT Solutions" style={{ width: '100%', maxWidth: '160px', height: 'auto', objectFit: 'contain' }} />
             </div>
-          </div>
-        )}
+          )}
+
+          {/* Step-Specific Sidebar Content */}
 
         <div className="sidebar-middle">
           {step === 1 && (
@@ -971,14 +958,55 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
           <span className="help-icon">❔</span> Help & Documentation
         </div>
       </div>
+      )}
 
       <div className={`app-main-content step-${step}`}>
+        {step === 3 && (
+          <button
+            onClick={() => setSidebarCollapsed(prev => !prev)}
+            style={{
+              position: 'absolute',
+              left: 0,
+              top: '40%',
+              zIndex: 999,
+              width: '32px',
+              minHeight: '130px',
+              background: '#18181b',
+              border: '1px solid #27272a',
+              borderLeft: 'none',
+              borderRadius: '0 8px 8px 0',
+              color: '#cbd5e1',
+              cursor: 'pointer',
+              display: 'flex',
+              flexDirection: 'column',
+              alignItems: 'center',
+              justifyContent: 'center',
+              gap: '10px',
+              fontSize: '10px',
+              fontWeight: '700',
+              textTransform: 'uppercase',
+              letterSpacing: '1px',
+              writingMode: 'vertical-lr',
+              boxShadow: '4px 0 12px rgba(0, 0, 0, 0.25)',
+              transition: 'all 0.2s',
+              padding: '12px 0',
+              userSelect: 'none',
+              lineHeight: '1.2'
+            }}
+            onMouseOver={e => { e.currentTarget.style.background = '#27272a'; e.currentTarget.style.color = '#ffffff'; }}
+            onMouseOut={e => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#cbd5e1'; }}
+            title={sidebarCollapsed ? "Show Folder Tree" : "Hide Folder Tree"}
+          >
+            <span style={{ fontSize: '11px', marginBottom: '2px', writingMode: 'horizontal-tb' }}>{sidebarCollapsed ? '▶' : '◀'}</span>
+            {sidebarCollapsed ? 'Explorer' : 'Collapse'}
+          </button>
+        )}
         {/* Floating Capsule Navbar */}
         <div className="floating-navbar-container">
-          <div className="floating-navbar">
-            <div className="nav-brand" style={{ gap: '10px' }}>
+          <div className="floating-navbar" style={{ padding: '16px 24px' }}>
+            <div className="nav-brand" style={{ gap: '10px', alignItems: 'center' }}>
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/Logo.png" alt="Logo" style={{ height: '24px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+                <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
               </div>
               <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
@@ -1015,6 +1043,22 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               >
                 History
               </button>
+
+              {job?.name && (
+                <>
+                  <div style={{ width: '1px', height: '20px', background: '#27272a', margin: '0 8px' }} />
+                  <div className="active-workspace-nav-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '6px' }}>
+                    <div style={{ position: 'relative', width: '8px', height: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                      <div className="pulse-ring" style={{ width: '18px', height: '18px' }}></div>
+                      <div className="active-project-dot" style={{ width: '8px', height: '8px' }}></div>
+                    </div>
+                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                      <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#10b981', fontWeight: '700' }}>Active Workspace</span>
+                      <span style={{ fontSize: '13px', color: '#ffffff', fontWeight: '600', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.name}</span>
+                    </div>
+                  </div>
+                </>
+              )}
             </div>
             <button className="nav-email-btn" onClick={() => navigate("/project/new/legacy")}>
               {/* <button className="nav-email-btn" onClick={() => setShowCreateProjectModal(true)}> */}
@@ -1074,183 +1118,194 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               </div>
             ) : (
               <div className="upload-inputs-container new-sleek-design">
-                {/* SECTION 1: PROJECT DOCUMENTS */}
-                <div className="sleek-section">
-                  <div className="sleek-section-header">
-                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>📄</span> Project Documents</h3>
-                    <p>Upload any requirements or spec documents (Optional)</p>
-                  </div>
-                  <div className="sleek-upload-list">
+                <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'stretch', width: '100%' }}>
+                  
+                  {/* LEFT COLUMN: PROJECT DOCUMENTS & CODE */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', flex: '1 1 400px', width: '100%' }}>
+                    {/* SECTION 1: PROJECT DOCUMENTS */}
+                    <div className="sleek-section">
+                      <div className="sleek-section-header">
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>📄</span> Project Documents</h3>
+                        <p>Upload any requirements or spec documents (Optional)</p>
+                      </div>
+                      <div className="sleek-upload-list">
 
-                    {/* BRD */}
-                    <div className={`sleek-list-item ${brd ? 'has-file' : ''}`}>
-                      <div className="sleek-item-left">
-                        <span className="sleek-item-label">BRD (Business Requirements)</span>
-                      </div>
-                      <div className="sleek-item-right">
-                        {brd ? (
-                          <>
-                            <span className="sleek-filename">{brd.name}</span>
-                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(brd)}>👁</button>
-                            <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
-                          </>
-                        ) : (
-                          <label className="sleek-upload-btn">
-                            Upload
-                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* FSD */}
-                    <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`}>
-                      <div className="sleek-item-left">
-                        <span className="sleek-item-label">FSD (Functional Specs)</span>
-                      </div>
-                      <div className="sleek-item-right">
-                        {fsd ? (
-                          <>
-                            <span className="sleek-filename">{fsd.name}</span>
-                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(fsd)}>👁</button>
-                            <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
-                          </>
-                        ) : (
-                          <label className="sleek-upload-btn">
-                            Upload
-                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* SRS */}
-                    <div className={`sleek-list-item ${srs ? 'has-file' : ''}`}>
-                      <div className="sleek-item-left">
-                        <span className="sleek-item-label">SRS (Software Requirements)</span>
-                      </div>
-                      <div className="sleek-item-right">
-                        {srs ? (
-                          <>
-                            <span className="sleek-filename">{srs.name}</span>
-                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(srs)}>👁</button>
-                            <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
-                          </>
-                        ) : (
-                          <label className="sleek-upload-btn">
-                            Upload
-                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                    {/* FRD */}
-                    <div className={`sleek-list-item ${frd ? 'has-file' : ''}`}>
-                      <div className="sleek-item-left">
-                        <span className="sleek-item-label">FRD (Functional Requirements)</span>
-                      </div>
-                      <div className="sleek-item-right">
-                        {frd ? (
-                          <>
-                            <span className="sleek-filename">{frd.name}</span>
-                            <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(frd)}>👁</button>
-                            <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
-                          </>
-                        ) : (
-                          <label className="sleek-upload-btn">
-                            Upload
-                            <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
-                          </label>
-                        )}
-                      </div>
-                    </div>
-
-                  </div>
-                </div>
-
-                {/* SECTION 2: DESIGN & UI */}
-                <div className="sleek-section">
-                  <div className="sleek-section-header">
-                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🎨</span> Design & UI References</h3>
-                    <p>Upload mockup images or link your Figma designs (Optional)</p>
-                  </div>
-
-                  <div className="sleek-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                    <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0' }}>
-                      <span className="sleek-item-label">Reference Mockups (Images)</span>
-                      <label className="sleek-upload-btn">
-                        {images.length > 0 ? '+ Add More' : 'Upload Images'}
-                        <input type="file" multiple accept="image/*" onChange={(e) => setImages([...images, ...Array.from(e.target.files)])} className="hidden-file-input" />
-                      </label>
-                    </div>
-                    {images.length > 0 && (
-                      <div className="sleek-images-gallery">
-                        {images.map((img, index) => (
-                          <div key={index} className="sleek-image-thumb">
-                            <button type="button" className="sleek-remove-img" onClick={() => setImages(images.filter((_, i) => i !== index))}>✕</button>
-                            <ImageThumbnail file={img} />
+                        {/* BRD */}
+                        <div className={`sleek-list-item ${brd ? 'has-file' : ''}`}>
+                          <div className="sleek-item-left">
+                            <span className="sleek-item-label">BRD (Business Requirements)</span>
                           </div>
-                        ))}
-                      </div>
-                    )}
-                  </div>
+                          <div className="sleek-item-right">
+                            {brd ? (
+                              <>
+                                <span className="sleek-filename">{brd.name}</span>
+                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(brd)}>👁</button>
+                                <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
+                              </>
+                            ) : (
+                              <label className="sleek-upload-btn">
+                                Upload
+                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
+                              </label>
+                            )}
+                          </div>
+                        </div>
 
-                  <div className="sleek-inputs-row">
-                    <div className="sleek-input-group">
-                      <label>Figma File URL</label>
-                      <div className="sleek-input-wrapper">
-                        <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                        {/* FSD */}
+                        <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`}>
+                          <div className="sleek-item-left">
+                            <span className="sleek-item-label">FSD (Functional Specs)</span>
+                          </div>
+                          <div className="sleek-item-right">
+                            {fsd ? (
+                              <>
+                                <span className="sleek-filename">{fsd.name}</span>
+                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(fsd)}>👁</button>
+                                <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
+                              </>
+                            ) : (
+                              <label className="sleek-upload-btn">
+                                Upload
+                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* SRS */}
+                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`}>
+                          <div className="sleek-item-left">
+                            <span className="sleek-item-label">SRS (Software Requirements)</span>
+                          </div>
+                          <div className="sleek-item-right">
+                            {srs ? (
+                              <>
+                                <span className="sleek-filename">{srs.name}</span>
+                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(srs)}>👁</button>
+                                <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
+                              </>
+                            ) : (
+                              <label className="sleek-upload-btn">
+                                Upload
+                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+
+                        {/* FRD */}
+                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`}>
+                          <div className="sleek-item-left">
+                            <span className="sleek-item-label">FRD (Functional Requirements)</span>
+                          </div>
+                          <div className="sleek-item-right">
+                            {frd ? (
+                              <>
+                                <span className="sleek-filename">{frd.name}</span>
+                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(frd)}>👁</button>
+                                <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
+                              </>
+                            ) : (
+                              <label className="sleek-upload-btn">
+                                Upload
+                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
+                              </label>
+                            )}
+                          </div>
+                        </div>
+
                       </div>
                     </div>
-                    <div className="sleek-input-group">
-                      <label>Figma API Token</label>
-                      <div className="sleek-input-wrapper">
-                        <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
-                        <button type="button" className="sleek-icon-btn" style={{ border: 'none', background: 'transparent', width: 'auto' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
-                          {showFigmaToken ? '🙈' : '👁️'}
-                        </button>
+
+                    {/* SECTION 3: EXTERNAL LINKS */}
+                    <div className="sleek-section">
+                      <div className="sleek-section-header">
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🔗</span> Code & Environment</h3>
+                        <p>Link your repository and deployed application (Optional)</p>
+                      </div>
+                      <div className="sleek-inputs-row">
+                        <div className="sleek-input-group">
+                          <label>GitHub Repository URL</label>
+                          <div className="sleek-input-wrapper">
+                            <input type="text" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="sleek-input-group">
+                          <label>Deployed Project URL</label>
+                          <div className="sleek-input-wrapper">
+                            <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
+                          </div>
+                        </div>
                       </div>
                     </div>
                   </div>
-                </div>
 
-                {/* SECTION 3: EXTERNAL LINKS */}
-                <div className="sleek-section">
-                  <div className="sleek-section-header">
-                    <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🔗</span> Code & Environment</h3>
-                    <p>Link your repository and deployed application (Optional)</p>
-                  </div>
-                  <div className="sleek-inputs-row">
-                    <div className="sleek-input-group">
-                      <label>GitHub Repository URL</label>
-                      <div className="sleek-input-wrapper">
-                        <input type="text" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
+                  {/* RIGHT COLUMN: DESIGN & UI REFERENCES + SUBMIT CARD */}
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', flex: '1 1 400px', width: '100%' }}>
+                    {/* SECTION 2: DESIGN & UI */}
+                    <div className="sleek-section">
+                      <div className="sleek-section-header">
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🎨</span> Design & UI References</h3>
+                        <p>Upload mockup images or link your Figma designs (Optional)</p>
+                      </div>
+
+                      <div className="sleek-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0' }}>
+                          <span className="sleek-item-label">Reference Mockups (Images)</span>
+                          <label className="sleek-upload-btn">
+                            {images.length > 0 ? '+ Add More' : 'Upload Images'}
+                            <input type="file" multiple accept="image/*" onChange={(e) => setImages([...images, ...Array.from(e.target.files)])} className="hidden-file-input" />
+                          </label>
+                        </div>
+                        {images.length > 0 && (
+                          <div className="sleek-images-gallery">
+                            {images.map((img, index) => (
+                              <div key={index} className="sleek-image-thumb">
+                                <button type="button" className="sleek-remove-img" onClick={() => setImages(images.filter((_, i) => i !== index))}>✕</button>
+                                <ImageThumbnail file={img} />
+                              </div>
+                            ))}
+                          </div>
+                        )}
+                      </div>
+
+                      <div className="sleek-inputs-row">
+                        <div className="sleek-input-group">
+                          <label>Figma File URL</label>
+                          <div className="sleek-input-wrapper">
+                            <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                          </div>
+                        </div>
+                        <div className="sleek-input-group">
+                          <label>Figma API Token</label>
+                          <div className="sleek-input-wrapper">
+                            <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
+                            <button type="button" className="sleek-icon-btn" style={{ border: 'none', background: 'transparent', width: 'auto' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
+                              {showFigmaToken ? '🙈' : '👁️'}
+                            </button>
+                          </div>
+                        </div>
                       </div>
                     </div>
-                    <div className="sleek-input-group">
-                      <label>Deployed Project URL</label>
-                      <div className="sleek-input-wrapper">
-                        <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
+
+                    {/* SUBMIT ACTIONS SECTION CARD */}
+                    <div className="sleek-section" style={{ marginTop: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', margin: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '16px' }}>
+                      <div className="toggle-row sleek-toggle" style={{ margin: 0 }}>
+                        <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
+                        <label htmlFor="deep" style={{ fontWeight: '600', color: '#1e293b', fontSize: '13.5px', cursor: 'pointer' }}>Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
                       </div>
+                      <button
+                        className="sleek-submit-btn"
+                        onClick={startAnalysis}
+                        disabled={submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)}
+                        style={{ width: '100%', margin: 0, padding: '14px', fontSize: '14px', fontWeight: '750', textTransform: 'uppercase', letterSpacing: '0.5px' }}
+                      >
+                        {submitting ? 'Analyzing & Generating...' : 'Analyze Documents ➔'}
+                      </button>
                     </div>
-                  </div>
-                </div>
 
-                {/* FOOTER ACTION */}
-                <div className="sleek-action-footer">
-                  <div className="toggle-row sleek-toggle">
-                    <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-                    <label htmlFor="deep">Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
                   </div>
 
-                  <button
-                    className="sleek-submit-btn"
-                    onClick={startAnalysis}
-                    disabled={submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)}
-                  >
-                    {submitting ? 'Analyzing & Generating...' : 'Analyze Documents ➔'}
-                  </button>
                 </div>
 
                 {job?.status === 'error' && <div className="error-banner" style={{ marginTop: 24 }}>{job.error}</div>}
@@ -1270,19 +1325,19 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
             <div className="details-panel-monochrome">
               <div className="tabs-header-monochrome">
                 <button
-                  className={`tab-btn-monochrome ${activeTab === 'features' ? 'active' : ''}`}
+                  className={`tab-btn-monochrome tab-features ${activeTab === 'features' ? 'active' : ''}`}
                   onClick={() => setActiveTab('features')}
                 >
                   📋 Features <span className="tab-count-monochrome">{featuresCount}</span>
                 </button>
                 <button
-                  className={`tab-btn-monochrome ${activeTab === 'flows' ? 'active' : ''}`}
+                  className={`tab-btn-monochrome tab-flows ${activeTab === 'flows' ? 'active' : ''}`}
                   onClick={() => setActiveTab('flows')}
                 >
                   🔄 User Flows <span className="tab-count-monochrome">{flowsCount}</span>
                 </button>
                 <button
-                  className={`tab-btn-monochrome ${activeTab === 'issues' ? 'active' : ''}`}
+                  className={`tab-btn-monochrome tab-issues ${activeTab === 'issues' ? 'active' : ''}`}
                   onClick={() => setActiveTab('issues')}
                 >
                   ⚠ Issues & Gaps <span className="tab-count-monochrome">{totalIssues}</span>

@@ -57,6 +57,77 @@
   color: var(--text-dark);
 }
 
+/* === Per-tab light colors === */
+
+/* Features — soft blue */
+.tab-btn-monochrome.tab-features {
+  color: #1d6fa4;
+  background: #eff6ff;
+}
+.tab-btn-monochrome.tab-features:hover {
+  background: #dbeafe;
+  color: #1558a0;
+}
+.tab-btn-monochrome.tab-features.active {
+  background: #dbeafe;
+  color: #1d4ed8;
+  border-bottom-color: #3b82f6;
+}
+.tab-btn-monochrome.tab-features .tab-count-monochrome {
+  background: #bfdbfe;
+  color: #1e40af;
+}
+.tab-btn-monochrome.tab-features.active .tab-count-monochrome {
+  background: #93c5fd;
+  color: #1e3a8a;
+}
+
+/* User Flows — soft green */
+.tab-btn-monochrome.tab-flows {
+  color: #166534;
+  background: #f0fdf4;
+}
+.tab-btn-monochrome.tab-flows:hover {
+  background: #dcfce7;
+  color: #14532d;
+}
+.tab-btn-monochrome.tab-flows.active {
+  background: #dcfce7;
+  color: #15803d;
+  border-bottom-color: #22c55e;
+}
+.tab-btn-monochrome.tab-flows .tab-count-monochrome {
+  background: #bbf7d0;
+  color: #14532d;
+}
+.tab-btn-monochrome.tab-flows.active .tab-count-monochrome {
+  background: #86efac;
+  color: #14532d;
+}
+
+/* Issues & Gaps — soft amber */
+.tab-btn-monochrome.tab-issues {
+  color: #92400e;
+  background: #fffbeb;
+}
+.tab-btn-monochrome.tab-issues:hover {
+  background: #fef3c7;
+  color: #78350f;
+}
+.tab-btn-monochrome.tab-issues.active {
+  background: #fef3c7;
+  color: #b45309;
+  border-bottom-color: #f59e0b;
+}
+.tab-btn-monochrome.tab-issues .tab-count-monochrome {
+  background: #fde68a;
+  color: #78350f;
+}
+.tab-btn-monochrome.tab-issues.active .tab-count-monochrome {
+  background: #fcd34d;
+  color: #78350f;
+}
+
 .tab-content-monochrome {
   padding: 24px;
 }
@@ -1397,7 +1468,7 @@
 
 /* TREE BUILDER */
 .tree-builder-page { display: flex; flex-direction: column; height: 100vh; background: #f1f5f9; overflow: hidden; }
-.tree-builder-nav { display: flex; align-items: center; justify-content: space-between; padding: 10px 20px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; gap: 12px; }
+.tree-builder-nav { display: flex; align-items: center; justify-content: space-between; padding: 16px 24px; background: white; border-bottom: 1px solid #e2e8f0; flex-shrink: 0; gap: 12px; }
 .tree-builder-nav-center { display: flex; align-items: center; gap: 10px; flex: 1; justify-content: center; }
 .tree-builder-project-name { font-size: 15px; font-weight: 700; color: #0f172a; }
 .tree-builder-domain, .tree-builder-type { font-size: 12px; padding: 2px 8px; border-radius: 20px; background: #ede9fe; color: #7c3aed; font-weight: 500; }

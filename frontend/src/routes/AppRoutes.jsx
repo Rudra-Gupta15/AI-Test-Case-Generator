@@ -4,7 +4,6 @@ import ProtectedRoute from './ProtectedRoute.jsx'
 import Login from '../pages/Login.jsx'
 import Projects from '../pages/Projects.jsx'
 import NewProjectForm from '../components/projects/NewProjectForm.jsx'
-import TreeBuilder from '../pages/TreeBuilder.jsx'
 import LegacyWorkspace from '../pages/LegacyWorkspace.jsx'
 import Admin from '../pages/Admin.jsx'
 
@@ -25,7 +24,8 @@ export default function AppRoutes() {
       {/* Protected — User */}
       <Route path="/projects" element={<ProtectedRoute><Projects /></ProtectedRoute>} />
       <Route path="/projects/new" element={<ProtectedRoute><NewProjectForm /></ProtectedRoute>} />
-      <Route path="/project/:id/build" element={<ProtectedRoute><TreeBuilder /></ProtectedRoute>} />
+      {/* /build redirects to /legacy for backward compat */}
+      <Route path="/project/:id/build" element={<Navigate to="../legacy" replace />} />
       <Route path="/project/:id/legacy" element={<ProtectedRoute><LegacyWorkspace /></ProtectedRoute>} />
 
       {/* Protected — Admin only */}

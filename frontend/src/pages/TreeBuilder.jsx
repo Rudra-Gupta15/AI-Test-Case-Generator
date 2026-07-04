@@ -110,9 +110,9 @@ export default function TreeBuilder() {
   return (
     <div className="tree-builder-page">
       {/* Top nav */}
-      <header className="tree-builder-nav" style={{ background: '#000000', borderBottom: '1px solid #222222', padding: '12px 24px', color: '#ffffff' }}>
+      <header className="tree-builder-nav" style={{ background: '#000000', borderBottom: '1px solid #222222', padding: '16px 24px', color: '#ffffff' }}>
         <button 
-          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
+          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
           onClick={() => navigate('/projects')}
         >
           <span>?</span> Projects
@@ -123,7 +123,7 @@ export default function TreeBuilder() {
           {project.testing_type && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', fontWeight: '600' }}>{project.testing_type}</span>}
         </div>
         <button 
-          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }} 
+          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '8px 16px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }} 
           onClick={() => { logout(); navigate('/login') }}
         >
           Sign Out

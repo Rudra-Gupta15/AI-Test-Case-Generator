@@ -2,6 +2,17 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import client from '../services/client.js'
+import { 
+  Users, 
+  Shield, 
+  Power, 
+  UserPlus, 
+  Trash2, 
+  ArrowLeft, 
+  LogOut, 
+  X, 
+  AlertTriangle 
+} from 'lucide-react'
 
 export default function Admin() {
   const { currentUser, logout } = useAuth()
@@ -25,6 +36,7 @@ export default function Admin() {
     e.preventDefault()
     if (!createForm.login_id.trim() || !createForm.password) return
     setCreating(true)
+    setError('')
     try {
       const newUser = await client.post('/api/admin/users', createForm)
       setUsers(prev => [newUser, ...prev])
@@ -56,99 +68,147 @@ export default function Admin() {
     }
   }
 
+  const totalAccounts = users.length
+  const activeAdmins = users.filter(u => u.role === 'admin' && u.is_active).length
+  const activeUsers = users.filter(u => u.role === 'user' && u.is_active).length
+
   return (
     <div className="admin-page">
-      {/* Header */}
-      <header className="proj-list-header">
-        <div className="proj-list-brand">
-          <svg width="28" height="28" viewBox="0 0 36 36" fill="none">
-            <rect width="36" height="36" rx="10" fill="url(#adm-lg)"/>
-            <path d="M10 18h16M18 10v16" stroke="white" strokeWidth="2.5" strokeLinecap="round"/>
-            <defs>
-              <linearGradient id="adm-lg" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                <stop stopColor="#6366f1"/><stop offset="1" stopColor="#3b82f6"/>
-              </linearGradient>
-            </defs>
-          </svg>
-          <span className="proj-list-brand-name">Admin Dashboard</span>
+      {/* Header / Navbar */}
+      <div className="floating-navbar-container">
+        <div className="floating-navbar" style={{ padding: '16px 40px' }}>
+          <div className="nav-brand" style={{ gap: '10px' }}>
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+              <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+            </div>
+            <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
+            <span style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px', background: 'rgba(167, 139, 250, 0.15)', marginLeft: '8px', border: '1px solid rgba(167, 139, 250, 0.25)', letterSpacing: '0.05em' }}>ADMIN</span>
+          </div>
+          <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
+            <button className="nav-email-btn" style={{ background: 'rgba(255,255,255,0.08)', border: '1px solid rgba(255,255,255,0.1)', color: 'white', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => navigate('/projects')}>
+              <ArrowLeft size={14} /> Back to Projects
+            </button>
+            <button className="nav-email-btn" style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '8px 16px', display: 'inline-flex', alignItems: 'center', gap: '6px' }} onClick={() => { logout(); navigate('/login') }}>
+              <LogOut size={14} /> Sign Out
+            </button>
+          </div>
         </div>
-        <div className="proj-list-header-right">
-          <button className="btn-ghost" onClick={() => navigate('/projects')}>← Projects</button>
-          <button className="btn-ghost btn-ghost--danger" onClick={() => { logout(); navigate('/login') }}>
-            Sign Out
-          </button>
-        </div>
-      </header>
+      </div>
 
       <div className="admin-content">
-        {/* Hero */}
-        <div className="proj-list-hero">
+        {/* Hero Header */}
+        <div className="admin-hero">
           <h1>User Management</h1>
-          <p>Create and manage team accounts. Only admins can access this page.</p>
+          <p>Create, manage, and configure team member accounts. Only system administrators can access this dashboard.</p>
         </div>
 
-        {error && <div className="form-error-banner"><span>⚠</span> {error}</div>}
+        {error && (
+          <div style={{ display: 'flex', alignItems: 'center', gap: '10px', background: '#fee2e2', border: '1px solid #fecaca', color: '#b91c1c', padding: '14px 20px', borderRadius: '10px', margin: '0 40px 24px', fontSize: '14px', fontWeight: '500' }}>
+            <AlertTriangle size={18} />
+            <span>{error}</span>
+          </div>
+        )}
+
+        {/* Stats Grid */}
+        <div className="admin-stats-grid">
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon-wrap users">
+              <Users size={20} />
+            </div>
+            <div className="admin-stat-info">
+              <span className="admin-stat-label">Total Accounts</span>
+              <span className="admin-stat-value">{totalAccounts}</span>
+            </div>
+          </div>
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon-wrap admins">
+              <Shield size={20} />
+            </div>
+            <div className="admin-stat-info">
+              <span className="admin-stat-label">Admins</span>
+              <span className="admin-stat-value">{activeAdmins}</span>
+            </div>
+          </div>
+          <div className="admin-stat-card">
+            <div className="admin-stat-icon-wrap active">
+              <Power size={20} />
+            </div>
+            <div className="admin-stat-info">
+              <span className="admin-stat-label">Active Users</span>
+              <span className="admin-stat-value">{activeUsers}</span>
+            </div>
+          </div>
+        </div>
 
         {/* Toolbar */}
-        <div className="proj-list-toolbar">
-          <span style={{ color: '#64748b', fontSize: '14px' }}>
-            {users.length} account{users.length !== 1 ? 's' : ''}
-          </span>
-          <button className="btn btn-primary" onClick={() => setShowCreate(v => !v)}>
-            {showCreate ? '✕ Cancel' : '+ Create Account'}
+        <div className="admin-toolbar">
+          <div className="admin-toolbar-left">
+            <Users size={16} style={{ color: '#64748b' }} />
+            <span>{totalAccounts} account{totalAccounts !== 1 ? 's' : ''} configured</span>
+          </div>
+          <button 
+            className="admin-btn admin-btn-primary" 
+            onClick={() => setShowCreate(true)}
+          >
+            <UserPlus size={14} /> Create Account
           </button>
         </div>
 
-        {/* Create form */}
+        {/* Create form modal popup */}
         {showCreate && (
-          <div className="admin-create-card">
-            <h3>New Account</h3>
-            <form onSubmit={handleCreate} className="admin-create-form">
-              <div className="form-row-2">
-                <div className="form-field">
-                  <label>Login ID / Employee ID</label>
+          <div className="admin-modal-overlay" onClick={() => setShowCreate(false)}>
+            <div className="admin-create-card" onClick={e => e.stopPropagation()}>
+              <h3><UserPlus size={18} style={{ color: '#4f46e5' }} /> New Account</h3>
+              <form onSubmit={handleCreate} className="admin-create-form">
+                <div className="admin-form-row">
+                  <div className="admin-input-group">
+                    <label>Login ID / Employee ID</label>
+                    <input
+                      type="text"
+                      placeholder="e.g. emp001"
+                      value={createForm.login_id}
+                      onChange={e => setCreateForm(f => ({ ...f, login_id: e.target.value }))}
+                      autoFocus
+                      required
+                    />
+                  </div>
+                  <div className="admin-input-group">
+                    <label>Role</label>
+                    <select value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}>
+                      <option value="user">User (Standard)</option>
+                      <option value="admin">Administrator</option>
+                    </select>
+                  </div>
+                </div>
+                <div className="admin-input-group">
+                  <label>Password</label>
                   <input
-                    type="text"
-                    placeholder="emp001"
-                    value={createForm.login_id}
-                    onChange={e => setCreateForm(f => ({ ...f, login_id: e.target.value }))}
-                    autoFocus
+                    type="password"
+                    placeholder="Enter temporary password"
+                    value={createForm.password}
+                    onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
                     required
                   />
                 </div>
-                <div className="form-field">
-                  <label>Role</label>
-                  <select value={createForm.role} onChange={e => setCreateForm(f => ({ ...f, role: e.target.value }))}>
-                    <option value="user">User</option>
-                    <option value="admin">Admin</option>
-                  </select>
+                <div className="admin-form-actions">
+                  <button type="button" className="admin-btn" onClick={() => setShowCreate(false)}>Cancel</button>
+                  <button type="submit" className="admin-btn admin-btn-primary" disabled={creating}>
+                    {creating ? 'Creating...' : 'Create Account'}
+                  </button>
                 </div>
-              </div>
-              <div className="form-field">
-                <label>Password</label>
-                <input
-                  type="password"
-                  placeholder="Temporary password"
-                  value={createForm.password}
-                  onChange={e => setCreateForm(f => ({ ...f, password: e.target.value }))}
-                  required
-                />
-              </div>
-              <div className="form-actions">
-                <button type="button" className="btn-ghost" onClick={() => setShowCreate(false)}>Cancel</button>
-                <button type="submit" className="btn btn-primary" disabled={creating}>
-                  {creating ? <><span className="spinner-small" /> Creating...</> : 'Create Account'}
-                </button>
-              </div>
-            </form>
+              </form>
+            </div>
           </div>
         )}
 
         {/* User table */}
         {loading ? (
-          <div className="proj-loading"><div className="spinner" /><p>Loading users...</p></div>
+          <div className="proj-loading" style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '80px 0', gap: '16px' }}>
+            <div className="spinner" />
+            <p style={{ color: '#64748b', fontSize: '14px', fontWeight: '500' }}>Loading system accounts...</p>
+          </div>
         ) : (
-          <div className="admin-table-wrap">
+          <div className="admin-table-container">
             <table className="admin-table">
               <thead>
                 <tr>
@@ -162,38 +222,45 @@ export default function Admin() {
               <tbody>
                 {users.map(u => (
                   <tr key={u.id} className={!u.is_active ? 'admin-row--inactive' : ''}>
-                    <td className="admin-td-loginid">
-                      {u.login_id}
-                      {u.id === currentUser?.id && <span className="admin-badge-you">You</span>}
+                    <td>
+                      <div className="admin-user-cell">
+                        <div className="admin-avatar">
+                          {u.login_id.slice(0, 2)}
+                        </div>
+                        <span className="admin-user-name">
+                          {u.login_id}
+                          {u.id === currentUser?.id && <span className="admin-row-you">You</span>}
+                        </span>
+                      </div>
                     </td>
                     <td>
-                      <span className={`admin-role-badge admin-role-${u.role}`}>{u.role}</span>
+                      <span className={`admin-badge-role-${u.role}`}>
+                        <Shield size={11} /> {u.role}
+                      </span>
                     </td>
                     <td>
-                      <span className={`admin-status-badge ${u.is_active ? 'active' : 'inactive'}`}>
-                        {u.is_active ? 'Active' : 'Inactive'}
+                      <span className={u.is_active ? 'admin-badge-status-active' : 'admin-badge-status-inactive'}>
+                        {u.is_active ? <Power size={11} /> : <X size={11} />} {u.is_active ? 'Active' : 'Inactive'}
                       </span>
                     </td>
                     <td style={{ color: '#64748b', fontSize: '13px' }}>
-                      {u.created_at ? new Date(u.created_at * 1000).toLocaleDateString() : '—'}
+                      {u.created_at ? new Date(u.created_at * 1000).toLocaleDateString(undefined, { year: 'numeric', month: 'short', day: 'numeric' }) : '—'}
                     </td>
                     <td>
-                      <div className="admin-actions">
+                      <div className="admin-actions-cell">
                         {u.id !== currentUser?.id && (
                           <>
                             <button
-                               className="admin-action-btn"
+                              className="admin-btn admin-btn-action"
                               onClick={() => toggleActive(u)}
-                              title={u.is_active ? 'Deactivate' : 'Activate'}
                             >
-                              {u.is_active ? '⏸ Deactivate' : '▶ Activate'}
+                              <Power size={12} /> {u.is_active ? 'Deactivate' : 'Activate'}
                             </button>
                             <button
-                               className="admin-action-btn admin-action-btn--danger"
+                              className="admin-btn admin-btn-action admin-btn-danger-outline"
                               onClick={() => handleDelete(u.id)}
-                              title="Delete user"
                             >
-                              🗑 Delete
+                              <Trash2 size={12} /> Delete
                             </button>
                           </>
                         )}
