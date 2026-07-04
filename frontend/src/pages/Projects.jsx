@@ -155,7 +155,7 @@ export default function Projects() {
               <button className="nav-email-btn" style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px' }} onClick={() => { logout(); navigate('/login') }}>
                 Sign Out
               </button>
-            </div>
+            </div>~
           </div>
         </div>
 

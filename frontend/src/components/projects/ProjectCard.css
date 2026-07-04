@@ -1,0 +1,157 @@
+.proj-card {
+    position: relative;
+
+    width: 100%;
+    height: 220px;
+
+    background: #ffffff;
+
+    border: 1.5px solid #d9e2ef;
+    border-radius: 0 14px 14px 14px;
+
+    padding: 20px;
+
+    display: flex;
+    flex-direction: column;
+
+    cursor: pointer;
+
+    overflow: visible;
+
+    transition: all .25s ease;
+
+    box-shadow: 0 6px 18px rgba(15, 23, 42, 0.05);
+}
+
+.proj-card:hover {
+    border-color: #4f7dff;
+    box-shadow: 0 10px 24px rgba(79, 125, 255, .14);
+    transform: translateY(-2px);
+}
+
+.proj-card:hover .proj-card-tab {
+    border-color: #4f7dff;
+}
+
+.proj-card-tab {
+    position: absolute;
+
+    top: -14px;
+    left: -1.5px;
+
+    width: 75px;
+    height: 15.5px;
+
+    background: #ffffff;
+
+    border-top: 1.5px solid #d9e2ef;
+    border-left: 1.5px solid #d9e2ef;
+    border-right: 1.5px solid #d9e2ef;
+    border-bottom: none;
+
+    border-top-left-radius: 12px;
+    border-top-right-radius: 12px;
+    transition: all .25s ease;
+}
+
+.proj-card-top {
+    display: flex;
+    justify-content: space-between;
+    align-items: flex-start;
+
+    margin-bottom: 10px;
+}
+
+.proj-card-icon {
+    font-size: 40px;
+    line-height: 1;
+}
+
+.proj-card-actions {
+    display: flex;
+    gap: 8px;
+}
+
+.proj-delete-btn,
+.proj-menu-btn {
+    background: transparent;
+    border: none;
+
+    color: #9ca3af;
+
+    cursor: pointer;
+
+    transition: .2s;
+}
+
+.proj-delete-btn:hover {
+    color: #ef4444;
+}
+
+.proj-menu-btn:hover {
+    color: #4f7dff;
+}
+
+.proj-card-title {
+    margin: 6px 0 4px;
+
+    color: #1f2937;
+
+    font-size: 13.5px;
+    font-weight: 700;
+
+    line-height: 1.35;
+}
+
+.proj-card-description {
+    margin: 0;
+
+    color: #64748b;
+
+    font-size: 11px;
+
+    line-height: 16px;
+
+    display: -webkit-box;
+    -webkit-line-clamp: 2;
+    -webkit-box-orient: vertical;
+
+    overflow: hidden;
+}
+
+.proj-card-footer {
+    margin-top: auto;
+
+    padding-top: 10px;
+
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+
+    border-top: 1px solid #edf2f7;
+}
+
+.proj-card-tags {
+    display: flex;
+    gap: 6px;
+}
+
+.proj-card-tags span {
+    background: #f3f4f6;
+
+    color: #6b7280;
+
+    padding: 3px 8px;
+
+    border-radius: 6px;
+
+    font-size: 10px;
+
+    font-weight: 500;
+}
+
+.proj-card-date {
+    color: #94a3b8;
+
+    font-size: 11px;
+}
