@@ -384,6 +384,7 @@ export default function LegacyWorkspace() {
       })
       if (response.ok) {
         alert("Project saved successfully!")
+        fetchProjects()
       } else {
         alert("Failed to save project.")
       }
@@ -1642,20 +1643,20 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                     )}
                                   </td>
                                   <td {...getCellProps(tc, 'id', { whiteSpace: 'nowrap', fontWeight: 600 })} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)}>{tc.id}</td>
-                                  <td {...getCellProps(tc, 'category')} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{tc.category}</td>
-                                  <td {...getCellProps(tc, 'scenario')} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{tc.scenario}</td>
-                                  <td {...getCellProps(tc, 'description')} onBlur={(e) => handleCellEdit(tc.id, 'description', e.target.innerText)}>{tc.description}</td>
-                                  <td {...getCellProps(tc, 'precondition')} onBlur={(e) => handleCellEdit(tc.id, 'precondition', e.target.innerText)}>{tc.precondition || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'category')} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{typeof tc.category === 'object' ? JSON.stringify(tc.category) : tc.category}</td>
+                                  <td {...getCellProps(tc, 'scenario')} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{typeof tc.scenario === 'object' ? JSON.stringify(tc.scenario) : tc.scenario}</td>
+                                  <td {...getCellProps(tc, 'description')} onBlur={(e) => handleCellEdit(tc.id, 'description', e.target.innerText)}>{typeof tc.description === 'object' ? JSON.stringify(tc.description) : tc.description}</td>
+                                  <td {...getCellProps(tc, 'precondition')} onBlur={(e) => handleCellEdit(tc.id, 'precondition', e.target.innerText)}>{(typeof tc.precondition === 'object' ? JSON.stringify(tc.precondition) : tc.precondition) || 'N/A'}</td>
                                   <td {...getCellProps(tc, 'steps', { whiteSpace: 'pre-wrap' })} onBlur={(e) => {
                                     const text = e.target.innerText.trim();
                                     handleCellEdit(tc.id, 'steps', text ? text.split('\n') : [])
                                   }}>
-                                    {Array.isArray(tc.steps) ? tc.steps.join('\n') : (tc.steps || 'N/A')}
+                                    {Array.isArray(tc.steps) ? tc.steps.join('\n') : (typeof tc.steps === 'object' ? JSON.stringify(tc.steps) : (tc.steps || 'N/A'))}
                                   </td>
-                                  <td {...getCellProps(tc, 'test_data')} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{tc.test_data || 'N/A'}</td>
-                                  <td {...getCellProps(tc, 'expected_result')} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{tc.expected_result || 'N/A'}</td>
-                                  <td {...getCellProps(tc, 'actual_result')} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{tc.actual_result || 'N/A'}</td>
-                                  <td {...getCellProps(tc, 'postcondition')} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{tc.postcondition || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'test_data')} onBlur={(e) => handleCellEdit(tc.id, 'test_data', e.target.innerText)}>{(typeof tc.test_data === 'object' ? JSON.stringify(tc.test_data) : tc.test_data) || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'expected_result')} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{(typeof tc.expected_result === 'object' ? JSON.stringify(tc.expected_result) : tc.expected_result) || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'actual_result')} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{(typeof tc.actual_result === 'object' ? JSON.stringify(tc.actual_result) : tc.actual_result) || 'N/A'}</td>
+                                  <td {...getCellProps(tc, 'postcondition')} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{(typeof tc.postcondition === 'object' ? JSON.stringify(tc.postcondition) : tc.postcondition) || 'N/A'}</td>
                                   <td {...getCellProps(tc, 'status', {
                                     fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
                                     color:
