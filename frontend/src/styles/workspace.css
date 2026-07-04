@@ -680,7 +680,7 @@
 }
 
 .test-suite-table th, .test-suite-table td {
-  border: 1px solid var(--border-light);
+  border: 1px solid #cbd5e1;
   padding: 14px 16px;
   vertical-align: top;
   line-height: 1.5;
@@ -692,7 +692,7 @@
   color: var(--text-dark);
   font-weight: 700;
   white-space: nowrap;
-  border-bottom: 2px solid var(--border-light);
+  border-bottom: 2px solid #94a3b8;
 }
 
 .test-suite-table tbody tr:nth-child(even) {

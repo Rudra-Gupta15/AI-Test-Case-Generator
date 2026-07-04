@@ -1,5 +1,5 @@
 import { useState, useRef, useEffect } from 'react'
-import { useNavigate } from 'react-router-dom'
+import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import FilePreviewer, { ImageThumbnail } from '../components/common/FilePreviewer.jsx'
 import Mermaid from '../components/common/Mermaid.jsx'
@@ -9,6 +9,7 @@ import { ANALYZE_STAGES } from '../utils/constants.js'
 export default function LegacyWorkspace() {
   // Input states
   const navigate = useNavigate();
+  const { id } = useParams();
   const { currentUser, logout } = useAuth();
   const [brd, setBrd] = useState(null)
   const [fsd, setFsd] = useState(null)
@@ -135,7 +136,8 @@ export default function LegacyWorkspace() {
       suppressContentEditableWarning: true,
       style: {
         cursor: isSelecting ? 'pointer' : 'text',
-        border: isSelected ? '2px solid #3b82f6' : '1px solid transparent',
+        outline: isSelected ? '2px solid #3b82f6' : 'none',
+        outlineOffset: '-2px',
         backgroundColor: isSelected ? '#eff6ff' : 'inherit',
         boxSizing: 'border-box',
         transition: 'all 0.2s',
@@ -182,8 +184,12 @@ export default function LegacyWorkspace() {
   }
 
   useEffect(() => {
-    fetchProjects()
-  }, [])
+    fetchProjects().then(() => {
+      if (id && id !== 'new') {
+        loadProject(id)
+      }
+    })
+  }, [id])
 
   const loadProject = async (id) => {
     try {

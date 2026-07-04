@@ -112,7 +112,7 @@ export default function TreeBuilder() {
       {/* Top nav */}
       <header className="tree-builder-nav" style={{ background: '#000000', borderBottom: '1px solid #222222', padding: '12px 24px', color: '#ffffff' }}>
         <button 
-          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
+          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
           onClick={() => navigate('/projects')}
         >
           <span>?</span> Projects
