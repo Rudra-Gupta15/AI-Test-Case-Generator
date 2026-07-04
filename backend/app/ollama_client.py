@@ -15,13 +15,15 @@ UNDERSTAND_SYSTEM_PROMPT = """You are a senior QA/Business Analyst reviewing pro
 You will receive:
 - BRD (Business Requirements Document) text — what the product should do
 - FSD (Functional Spec Document) text — how it should behave in detail
+- SRS (Software Requirements Specification) text — technical and software requirements
+- FRD (Functional Requirements Document) text — functional details
 - Figma screen/frame names — the designed screens
 - Reference image descriptions — visual mockups/screenshots
 - Project Website Text — scraped text from a live project URL
 
 Your job: read everything and produce a structured understanding summary. Identify:
 1. Product type and one-line purpose
-2. Core features (list, each tied to its source: BRD|FSD|Figma|Image|Website). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
+2. Core features (list, each tied to its source: BRD|FSD|SRS|FRD|Figma|Image|Website). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
 3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation"). CRITICAL: List ALL user flows comprehensively.
 4. Inconsistencies or contradictions BETWEEN the documents (e.g. BRD mentions a feature with no FSD detail, or FSD describes a screen Figma doesn't have)
 5. Gaps — anything mentioned in one document but missing detail in another
@@ -30,7 +32,7 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact sha
 {
   "product_type": "...",
   "purpose": "...",
-  "features": [{"name": "...", "source": "BRD|FSD|Figma|Image|Website|Multiple", "description": "..."}],
+  "features": [{"name": "...", "source": "BRD|FSD|SRS|FRD|Figma|Image|Website|Multiple", "description": "..."}],
   "flows": [{"name": "...", "steps": ["...", "..."]}],
   "inconsistencies": [{"issue": "...", "severity": "High|Medium|Low", "detail": "..."}],
   "gaps": [{"item": "...", "detail": "..."}]
@@ -143,6 +145,8 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact sha
     }
   ]
 }
+
+CRITICAL: The values for 'category', 'scenario', 'description', 'precondition', 'test_data', 'expected_result', 'actual_result', and 'postcondition' MUST BE PLAIN STRINGS. DO NOT return nested JSON objects for these fields.
 """
 
 
@@ -214,7 +218,7 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: UNDERSTAND  (unchanged)
 # ──────────────────────────────────────────────────────────────────────
-async def understand(brd_text: str, fsd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False):
+async def understand(brd_text: str, fsd_text: str, srs_text: str, frd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
     figma_text = "\n".join([
@@ -227,6 +231,12 @@ async def understand(brd_text: str, fsd_text: str, figma_screens: list, image_pa
 
 FSD:
 {fsd_text or '[No FSD provided]'}
+
+SRS (Software Requirements Specification):
+{srs_text or '[No SRS provided]'}
+
+FRD (Functional Requirements Document):
+{frd_text or '[No FRD provided]'}
 
 Figma Design Info:
 {figma_text or '[No Figma screens found]'}
@@ -335,6 +345,19 @@ EXACT COUNTS REQUIRED:
 - TOTAL: {feature_plan.get('total', 5)} test cases
 
 You MUST produce EXACTLY {feature_plan.get('total', 5)} test cases. Not one more, not one less.
+
+REFERENCE DOCUMENTS:
+BRD:
+{product_context.get('brd_text', '')[:5000]}
+
+FSD:
+{product_context.get('fsd_text', '')[:5000]}
+
+SRS:
+{product_context.get('srs_text', '')[:5000]}
+
+FRD:
+{product_context.get('frd_text', '')[:5000]}
 """
 
     messages = [
@@ -596,9 +619,19 @@ The JSON must be an array of objects: [{"id": "...", "status": "Pass|Fail", "act
 
 TREE_GENERATION_PROMPT = """You are an AI architect helping to design a software testing structure.
 The user will provide a prompt describing what they want to build (e.g. 'login page structure', 'checkout flow').
-You must generate a logical tree structure using our node types:
+You must generate a logical, deeply nested tree structure using our node types.
+
+CRITICAL REQUIREMENT: Do not generate a flat list. You MUST break Modules down into smaller Sub-modules or Features.
+Example Structure:
+- Module (e.g. 'Authentication')
+  - Feature (e.g. 'Email Login')
+  - Feature (e.g. 'Social Login')
+- Module (e.g. 'Dashboard')
+  - Feature (e.g. 'Analytics Overview')
+
+Available Node Types:
 - Module (highest level folder)
-- Feature (a specific piece of functionality)
+- Feature (a specific piece of functionality inside a module)
 - Requirement (a business or technical requirement)
 - TestSuite (a collection of test cases)
 
@@ -607,8 +640,14 @@ Format:
 [
   {
     "name": "Node Name",
-    "node_type": "Module|Feature|Requirement|TestSuite",
-    "children": [ ...nested nodes if any... ]
+    "node_type": "Module",
+    "children": [
+      {
+        "name": "Sub Node Name",
+        "node_type": "Feature",
+        "children": []
+      }
+    ]
   }
 ]
 """

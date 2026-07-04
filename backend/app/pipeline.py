@@ -19,23 +19,19 @@ from app.jobs import update_job
 from app import doc_parser, figma_client, ollama_client
 
 
-def _persist_to_node(node_id: str, understanding: dict, report: dict) -> None:
+async def _persist_to_node(node_id: str, understanding: dict, report: dict) -> None:
     """Write analysis output to TreeNode.data in the DB (best-effort, non-blocking)."""
     try:
-        from app.database import SessionLocal
-        from app.models import TreeNode
-
-        db = SessionLocal()
-        try:
-            node = db.query(TreeNode).filter(TreeNode.id == node_id).first()
-            if node:
-                node.data = {
-                    "understanding": understanding,
-                    "test_report": report,
-                }
-                db.commit()
-        finally:
-            db.close()
+        from app.database import database
+        
+        node = await database.tree_nodes.find_one({"id": node_id})
+        if node:
+            existing = node.get("data") or {}
+            existing.update({
+                "understanding": understanding,
+                "test_report": report,
+            })
+            await database.tree_nodes.update_one({"id": node_id}, {"$set": {"data": existing}})
     except Exception as exc:
         # Non-fatal — job already has the data in memory
         print(f"[pipeline] Warning: failed to persist to node {node_id}: {exc}")
@@ -45,19 +41,30 @@ async def run_analysis(
     job_id: str,
     brd_path: Optional[str],
     fsd_path: Optional[str],
+    srs_path: Optional[str],
+    frd_path: Optional[str],
     image_paths: list[str],
     figma_url: Optional[str],
     figma_token: Optional[str],
     project_url: Optional[str],
     deep: bool,
-    node_id: Optional[str] = None,   # ← NEW
+    node_id: Optional[str] = None,
 ):
     try:
         # ── Stage 1: Parse documents ──
         update_job(job_id, status="running", stage="parsing_documents")
 
-        brd_text = doc_parser.truncate_for_llm(doc_parser.extract_text(brd_path)) if brd_path else ""
-        fsd_text = doc_parser.truncate_for_llm(doc_parser.extract_text(fsd_path)) if fsd_path else ""
+        async def parse_doc_async(path):
+            if not path:
+                return ""
+            import asyncio
+            text = await asyncio.to_thread(doc_parser.extract_text, path)
+            return doc_parser.truncate_for_llm(text)
+
+        brd_text = await parse_doc_async(brd_path)
+        fsd_text = await parse_doc_async(fsd_path)
+        srs_text = await parse_doc_async(srs_path)
+        frd_text = await parse_doc_async(frd_path)
 
         update_job(job_id, stage="fetching_figma")
         figma_screens = []
@@ -91,8 +98,14 @@ async def run_analysis(
         # ── Stage 1b: LLM Understanding ──
         update_job(job_id, stage="understanding")
         understanding = await ollama_client.understand(
-            brd_text, fsd_text, figma_screens, image_paths, project_text, deep=deep
+            brd_text, fsd_text, srs_text, frd_text, figma_screens, image_paths, project_text, deep=deep
         )
+        understanding["raw_texts"] = {
+            "brd_text": brd_text,
+            "fsd_text": fsd_text,
+            "srs_text": srs_text,
+            "frd_text": frd_text,
+        }
 
         update_job(job_id, understanding=understanding)
 
@@ -122,6 +135,10 @@ async def run_analysis(
         product_context = {
             "product_type": understanding.get("product_type", "Unknown"),
             "purpose": understanding.get("purpose", "Unknown"),
+            "brd_text": understanding.get("raw_texts", {}).get("brd_text", ""),
+            "fsd_text": understanding.get("raw_texts", {}).get("fsd_text", ""),
+            "srs_text": understanding.get("raw_texts", {}).get("srs_text", ""),
+            "frd_text": understanding.get("raw_texts", {}).get("frd_text", ""),
         }
 
         all_test_cases = []
@@ -173,7 +190,7 @@ async def run_analysis(
 
         # ── Write to TreeNode if node_id provided ──
         if node_id:
-            _persist_to_node(node_id, understanding, report)
+            await _persist_to_node(node_id, understanding, report)
 
     except Exception as e:
         update_job(job_id, status="error", stage="error", error=str(e))
@@ -204,6 +221,10 @@ async def run_test_generation(
         product_context = {
             "product_type": understanding.get("product_type", "Unknown"),
             "purpose": understanding.get("purpose", "Unknown"),
+            "brd_text": understanding.get("raw_texts", {}).get("brd_text", ""),
+            "fsd_text": understanding.get("raw_texts", {}).get("fsd_text", ""),
+            "srs_text": understanding.get("raw_texts", {}).get("srs_text", ""),
+            "frd_text": understanding.get("raw_texts", {}).get("frd_text", ""),
         }
 
         all_test_cases = []
@@ -253,7 +274,7 @@ async def run_test_generation(
 
         # ── Write to TreeNode if node_id provided ──
         if node_id:
-            _persist_to_node(node_id, understanding, report)
+            await _persist_to_node(node_id, understanding, report)
 
     except Exception as e:
         update_job(job_id, status="error", stage="error", error=str(e))

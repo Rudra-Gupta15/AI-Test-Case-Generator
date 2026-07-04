@@ -12,7 +12,6 @@ from fastapi import Depends, HTTPException, status
 from fastapi.security import HTTPBearer, HTTPAuthorizationCredentials
 import bcrypt
 from jose import JWTError, jwt
-from sqlalchemy.orm import Session
 
 from app.database import get_db
 from app.models import User
@@ -55,31 +54,31 @@ def decode_token(token: str) -> dict:
 
 # ── FastAPI Dependencies ──────────────────────────────────────────────────────
 
-def get_current_user(
+async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
 ) -> User:
     """Return the authenticated User or a default bypass user if no token is provided."""
     if credentials is None:
-        user = db.query(User).first()
-        return user if user else User(id="mock", login_id="mock", role="admin")
+        user_dict = await db.users.find_one()
+        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
 
     try:
         payload = decode_token(credentials.credentials)
         user_id: str = payload.get("sub")
         if user_id is None:
-            user = db.query(User).first()
-            return user if user else User(id="mock", login_id="mock", role="admin")
+            user_dict = await db.users.find_one()
+            return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
     except JWTError:
-        user = db.query(User).first()
-        return user if user else User(id="mock", login_id="mock", role="admin")
+        user_dict = await db.users.find_one()
+        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
 
-    user = db.query(User).filter(User.id == user_id).first()
-    if user is None or not user.is_active:
-        user = db.query(User).first()
-        return user if user else User(id="mock", login_id="mock", role="admin")
+    user_dict = await db.users.find_one({"id": user_id})
+    if user_dict is None or not user_dict.get("is_active"):
+        user_dict = await db.users.find_one()
+        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
 
-    return user
+    return User(**user_dict)
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:
