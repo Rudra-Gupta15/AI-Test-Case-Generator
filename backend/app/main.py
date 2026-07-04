@@ -7,17 +7,14 @@ from typing import Optional, List
 from fastapi import FastAPI, BackgroundTasks, HTTPException, UploadFile, File, Form, Depends
 from fastapi.middleware.cors import CORSMiddleware
 from pydantic import BaseModel
-from sqlalchemy.orm import Session
 
 from app.config import JOBS_DIR, UPLOADS_DIR, FIGMA_TOKEN
 from app.jobs import create_job, get_job, update_job
 from app.pipeline import run_analysis, run_test_generation
 from app import doc_parser
-from app.database import engine, Base, get_db
+from app.database import get_db
 from app.models import Project, User, TreeNode
 from app.auth import get_current_user, require_admin, hash_password, verify_password, create_access_token
-
-Base.metadata.create_all(bind=engine)
 
 app = FastAPI(title="QA Document Verifier")
 
@@ -51,18 +48,18 @@ class LoginRequest(BaseModel):
 
 
 @app.post("/api/auth/login")
-async def login(req: LoginRequest, db: Session = Depends(get_db)):
-    user = db.query(User).filter(User.login_id == req.login_id).first()
-    if not user or not verify_password(req.password, user.password_hash):
+async def login(req: LoginRequest, db = Depends(get_db)):
+    user_dict = await db.users.find_one({"login_id": req.login_id})
+    if not user_dict or not verify_password(req.password, user_dict.get("password_hash")):
         raise HTTPException(401, "Invalid login ID or password")
-    if not user.is_active:
+    if not user_dict.get("is_active"):
         raise HTTPException(403, "Account is deactivated — contact your admin")
 
-    token = create_access_token({"sub": user.id, "role": user.role})
+    token = create_access_token({"sub": user_dict["id"], "role": user_dict.get("role", "user")})
     return {
         "access_token": token,
         "token_type": "bearer",
-        "user": {"id": user.id, "login_id": user.login_id, "role": user.role},
+        "user": {"id": user_dict["id"], "login_id": user_dict["login_id"], "role": user_dict.get("role", "user")},
     }
 
 
@@ -73,37 +70,35 @@ async def login(req: LoginRequest, db: Session = Depends(get_db)):
 class CreateUserRequest(BaseModel):
     login_id: str
     password: str
-    role: str = "user"  # "user" or "admin"
+    role: str = "user"
 
 
 @app.post("/api/admin/users")
 async def create_user(
     req: CreateUserRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    existing = db.query(User).filter(User.login_id == req.login_id).first()
+    existing = await db.users.find_one({"login_id": req.login_id})
     if existing:
         raise HTTPException(400, f"Login ID '{req.login_id}' already exists")
     user = User(
-        id=str(uuid.uuid4()),
         login_id=req.login_id,
         password_hash=hash_password(req.password),
         role=req.role,
         is_active=True,
-        created_at=time.time(),
     )
-    db.add(user)
-    db.commit()
-    db.refresh(user)
+    user_dict = user.model_dump()
+    await db.users.insert_one(user_dict)
     return {"id": user.id, "login_id": user.login_id, "role": user.role, "is_active": user.is_active}
 
 
 @app.get("/api/admin/users")
-async def list_users(db: Session = Depends(get_db), _: User = Depends(require_admin)):
-    users = db.query(User).order_by(User.created_at.desc()).all()
+async def list_users(db = Depends(get_db), _: User = Depends(require_admin)):
+    users_cursor = db.users.find().sort("created_at", -1)
+    users = await users_cursor.to_list(length=1000)
     return [
-        {"id": u.id, "login_id": u.login_id, "role": u.role, "is_active": u.is_active, "created_at": u.created_at}
+        {"id": u["id"], "login_id": u["login_id"], "role": u.get("role", "user"), "is_active": u.get("is_active", True), "created_at": u.get("created_at")}
         for u in users
     ]
 
@@ -118,40 +113,44 @@ class UpdateUserRequest(BaseModel):
 async def update_user(
     user_id: str,
     req: UpdateUserRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     _: User = Depends(require_admin),
 ):
-    user = db.query(User).filter(User.id == user_id).first()
+    user = await db.users.find_one({"id": user_id})
     if not user:
         raise HTTPException(404, "User not found")
+    
+    update_data = {}
     if req.is_active is not None:
-        user.is_active = req.is_active
+        update_data["is_active"] = req.is_active
     if req.role is not None:
-        user.role = req.role
+        update_data["role"] = req.role
     if req.password is not None:
-        user.password_hash = hash_password(req.password)
-    db.commit()
-    return {"id": user.id, "login_id": user.login_id, "role": user.role, "is_active": user.is_active}
+        update_data["password_hash"] = hash_password(req.password)
+    
+    if update_data:
+        await db.users.update_one({"id": user_id}, {"$set": update_data})
+        user.update(update_data)
+        
+    return {"id": user["id"], "login_id": user["login_id"], "role": user.get("role", "user"), "is_active": user.get("is_active", True)}
 
 
 @app.delete("/api/admin/users/{user_id}")
 async def delete_user(
     user_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     admin: User = Depends(require_admin),
 ):
     if user_id == admin.id:
         raise HTTPException(400, "Cannot delete your own account")
-    user = db.query(User).filter(User.id == user_id).first()
-    if not user:
+    result = await db.users.delete_one({"id": user_id})
+    if result.deleted_count == 0:
         raise HTTPException(404, "User not found")
-    db.delete(user)
-    db.commit()
     return {"message": "User deleted"}
 
 
 # ═══════════════════════════════════════════════════════
-#  DOCUMENT PREVIEW (unchanged)
+#  DOCUMENT PREVIEW
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/preview")
@@ -172,7 +171,7 @@ async def preview_document(file: UploadFile = File(...)):
 
 
 # ═══════════════════════════════════════════════════════
-#  ANALYZE  (node_id added — backward-compatible)
+#  ANALYZE 
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/analyze")
@@ -188,7 +187,7 @@ async def analyze(
     github_url: str | None = Form(None),
     project_url: str | None = Form(None),
     deep: bool = Form(False),
-    node_id: str | None = Form(None),   # ← NEW: when set, output writes to TreeNode.data
+    node_id: str | None = Form(None),
 ):
     job_id = create_job()
     job_dir = os.path.join(UPLOADS_DIR, job_id)
@@ -206,6 +205,18 @@ async def analyze(
         with open(fsd_path, "wb") as f:
             shutil.copyfileobj(fsd.file, f)
 
+    srs_path = None
+    if srs is not None:
+        srs_path = os.path.join(job_dir, f"srs_{srs.filename}")
+        with open(srs_path, "wb") as f:
+            shutil.copyfileobj(srs.file, f)
+
+    frd_path = None
+    if frd is not None:
+        frd_path = os.path.join(job_dir, f"frd_{frd.filename}")
+        with open(frd_path, "wb") as f:
+            shutil.copyfileobj(frd.file, f)
+
     image_paths = []
     for img in images:
         img_path = os.path.join(job_dir, f"img_{img.filename}")
@@ -217,7 +228,7 @@ async def analyze(
 
     background_tasks.add_task(
         run_analysis,
-        job_id, brd_path, fsd_path, image_paths,
+        job_id, brd_path, fsd_path, srs_path, frd_path, image_paths,
         figma_url, token, project_url, deep,
         node_id=node_id,
     )
@@ -225,7 +236,7 @@ async def analyze(
 
 
 # ═══════════════════════════════════════════════════════
-#  JOB STATUS (unchanged)
+#  JOB STATUS
 # ═══════════════════════════════════════════════════════
 
 @app.get("/api/job/{job_id}")
@@ -237,14 +248,14 @@ async def job_status(job_id: str):
 
 
 # ═══════════════════════════════════════════════════════
-#  GENERATE TESTS  (node_id added — backward-compatible)
+#  GENERATE TESTS
 # ═══════════════════════════════════════════════════════
 
 class GenerateRequest(BaseModel):
     job_id: str
     user_prompt: str = ""
     deep: bool = False
-    node_id: Optional[str] = None  # ← NEW
+    node_id: Optional[str] = None
 
 
 @app.post("/api/generate-tests")
@@ -264,7 +275,7 @@ async def generate_tests(req: GenerateRequest, background_tasks: BackgroundTasks
 
 
 # ═══════════════════════════════════════════════════════
-#  CHATBOT (unchanged)
+#  CHATBOT
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/chatbot")
@@ -303,7 +314,7 @@ async def handle_chatbot(req: GenerateRequest, background_tasks: BackgroundTasks
 
 
 # ═══════════════════════════════════════════════════════
-#  EDIT TEST CASE (unchanged)
+#  EDIT TEST CASE
 # ═══════════════════════════════════════════════════════
 
 class TestCaseEditRequest(BaseModel):
@@ -323,7 +334,7 @@ async def edit_test_case_api(req: TestCaseEditRequest):
 
 
 # ═══════════════════════════════════════════════════════
-#  PROJECTS  (updated — auth-aware, expanded fields)
+#  PROJECTS
 # ═══════════════════════════════════════════════════════
 
 class CreateProjectRequest(BaseModel):
@@ -355,7 +366,7 @@ class CreateProjectWithTreeRequest(BaseModel):
 @app.post("/api/projects/empty")
 async def create_empty_project(
     req: CreateEmptyProjectRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: Optional[User] = Depends(get_current_user),
 ):
     from app.jobs import JOBS
@@ -364,9 +375,8 @@ async def create_empty_project(
         product_type=req.name,
         owner_id=current_user.id if current_user else None,
     )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    p_dict = project.model_dump()
+    await db.projects.insert_one(p_dict)
 
     JOBS[project.id] = {
         "id": project.id,
@@ -382,11 +392,9 @@ async def create_empty_project(
 @app.post("/api/projects/create_with_tree")
 async def create_project_with_tree(
     req: CreateProjectWithTreeRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    import uuid
-    # 1. Create project
     project = Project(
         name=req.project.name,
         product_type=req.project.name,
@@ -396,16 +404,14 @@ async def create_project_with_tree(
         methodology=req.project.methodology,
         owner_id=current_user.id,
     )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    p_dict = project.model_dump()
+    await db.projects.insert_one(p_dict)
 
-    # 2. Map old temp-IDs to new real UUIDs
     id_map = {}
     for draft_node in req.nodes:
         id_map[draft_node.id] = str(uuid.uuid4())
 
-    # 3. Insert TreeNodes
+    nodes_to_insert = []
     for draft_node in req.nodes:
         real_id = id_map[draft_node.id]
         real_parent_id = None
@@ -419,9 +425,10 @@ async def create_project_with_tree(
             node_type=draft_node.node_type,
             name=draft_node.name,
         )
-        db.add(node)
+        nodes_to_insert.append(node.model_dump())
     
-    db.commit()
+    if nodes_to_insert:
+        await db.tree_nodes.insert_many(nodes_to_insert)
 
     return {
         "id": project.id,
@@ -432,10 +439,9 @@ async def create_project_with_tree(
 @app.post("/api/projects")
 async def create_project(
     req: CreateProjectRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create a new project (new-style, with full metadata fields)."""
     project = Project(
         name=req.name,
         product_type=req.name,
@@ -445,9 +451,9 @@ async def create_project(
         methodology=req.methodology,
         owner_id=current_user.id,
     )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    p_dict = project.model_dump()
+    await db.projects.insert_one(p_dict)
+    
     return {
         "id": project.id,
         "name": project.name,
@@ -460,8 +466,7 @@ async def create_project(
 
 
 @app.post("/api/projects/save")
-async def save_project(req: SaveProjectRequest, db: Session = Depends(get_db)):
-    """Legacy: persist a completed analysis job into a project row."""
+async def save_project(req: SaveProjectRequest, db = Depends(get_db)):
     job = get_job(req.job_id)
     if not job:
         raise HTTPException(400, "Job not found")
@@ -472,60 +477,65 @@ async def save_project(req: SaveProjectRequest, db: Session = Depends(get_db)):
         else "Unnamed Project"
     )
 
-    existing_project = db.query(Project).filter(Project.id == req.job_id).first()
+    existing_project = await db.projects.find_one({"id": req.job_id})
     if existing_project:
-        existing_project.understanding = job.get("understanding")
-        existing_project.test_report = job.get("test_report")
-        project = existing_project
+        await db.projects.update_one(
+            {"id": req.job_id},
+            {"$set": {
+                "understanding": job.get("understanding"),
+                "test_report": job.get("test_report")
+            }}
+        )
+        project_id = req.job_id
     else:
         project = Project(
+            id=req.job_id,
             name=product_type,
             product_type=product_type,
             understanding=job.get("understanding"),
             test_report=job.get("test_report"),
         )
-        db.add(project)
+        p_dict = project.model_dump()
+        await db.projects.insert_one(p_dict)
+        project_id = project.id
 
-    db.commit()
-    db.refresh(project)
-    return {"id": project.id, "message": "Project saved successfully"}
+    return {"id": project_id, "message": "Project saved successfully"}
 
 
 @app.get("/api/projects")
 async def list_projects(
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return projects: admin sees all, users see their own + legacy (no owner)."""
     if current_user.role == "admin":
-        projects = db.query(Project).order_by(Project.created_at.desc()).all()
+        cursor = db.projects.find().sort("created_at", -1)
     else:
-        projects = (
-            db.query(Project)
-            .filter(
-                (Project.owner_id == current_user.id) | (Project.owner_id == None)
-            )
-            .order_by(Project.created_at.desc())
-            .all()
-        )
+        cursor = db.projects.find({
+            "$or": [
+                {"owner_id": current_user.id},
+                {"owner_id": None}
+            ]
+        }).sort("created_at", -1)
+        
+    projects = await cursor.to_list(length=1000)
 
-    # Check if project has a tree (new-style) or is legacy
     result = []
     for p in projects:
-        has_tree = db.query(TreeNode).filter(TreeNode.project_id == p.id).first() is not None
+        has_tree = await db.tree_nodes.find_one({"project_id": p["id"]}) is not None
+        test_report = p.get("test_report")
         result.append({
-            "id": p.id,
-            "name": p.name,
-            "product_type": p.product_type,
-            "description": p.description or "",
-            "domain": p.domain or "",
-            "testing_type": p.testing_type or "",
-            "methodology": p.methodology or "",
-            "created_at": p.created_at,
-            "notepad": p.notepad,
-            "total_cases": len(p.test_report.get("test_cases", [])) if p.test_report else 0,
+            "id": p["id"],
+            "name": p["name"],
+            "product_type": p.get("product_type"),
+            "description": p.get("description", ""),
+            "domain": p.get("domain", ""),
+            "testing_type": p.get("testing_type", ""),
+            "methodology": p.get("methodology", ""),
+            "created_at": p.get("created_at"),
+            "notepad": p.get("notepad", ""),
+            "total_cases": len(test_report.get("test_cases", [])) if test_report else 0,
             "has_tree": has_tree,
-            "is_legacy": not has_tree and bool(p.test_report),
+            "is_legacy": not has_tree and bool(test_report),
         })
     return result
 
@@ -533,28 +543,28 @@ async def list_projects(
 @app.get("/api/projects/{project_id}")
 async def get_project(
     project_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
+    project = await db.projects.find_one({"id": project_id})
     if not project:
         raise HTTPException(404, "Project not found")
 
     from app.jobs import JOBS
     job_data = {
-        "id": project.id,
-        "name": project.name,
+        "id": project["id"],
+        "name": project["name"],
         "status": "done",
         "stage": "done",
-        "notepad": project.notepad,
-        "understanding": project.understanding,
-        "test_report": project.test_report,
-        "description": project.description or "",
-        "domain": project.domain or "",
-        "testing_type": project.testing_type or "",
-        "methodology": project.methodology or "",
+        "notepad": project.get("notepad", ""),
+        "understanding": project.get("understanding"),
+        "test_report": project.get("test_report"),
+        "description": project.get("description", ""),
+        "domain": project.get("domain", ""),
+        "testing_type": project.get("testing_type", ""),
+        "methodology": project.get("methodology", ""),
     }
-    JOBS[project.id] = job_data
+    JOBS[project["id"]] = job_data
     return job_data
 
 
@@ -571,33 +581,35 @@ class UpdateProjectRequest(BaseModel):
 async def update_project(
     project_id: str,
     req: UpdateProjectRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
+    result = await db.projects.update_one(
+        {"id": project_id},
+        {"$set": {
+            "name": req.name,
+            "notepad": req.notepad,
+            "description": req.description,
+            "domain": req.domain,
+            "testing_type": req.testing_type,
+            "methodology": req.methodology,
+        }}
+    )
+    if result.matched_count == 0:
         raise HTTPException(404, "Project not found")
-    project.name = req.name
-    project.notepad = req.notepad
-    project.description = req.description
-    project.domain = req.domain
-    project.testing_type = req.testing_type
-    project.methodology = req.methodology
-    db.commit()
     return {"message": "Project updated successfully"}
 
 
 @app.delete("/api/projects/{project_id}")
 async def delete_project(
     project_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = db.query(Project).filter(Project.id == project_id).first()
-    if not project:
+    result = await db.projects.delete_one({"id": project_id})
+    if result.deleted_count == 0:
         raise HTTPException(404, "Project not found")
-    db.delete(project)
-    db.commit()
+    await db.tree_nodes.delete_many({"project_id": project_id})
     return {"message": "Project deleted successfully"}
 
 
@@ -609,36 +621,22 @@ class ImportProjectRequest(BaseModel):
 
 
 @app.post("/api/projects/import")
-async def import_project(req: ImportProjectRequest, db: Session = Depends(get_db)):
+async def import_project(req: ImportProjectRequest, db = Depends(get_db)):
     project = Project(
         name=req.name,
         product_type=req.name,
-        notepad=req.notepad,
+        notepad=req.notepad or "",
         understanding=req.understanding,
         test_report=req.test_report,
     )
-    db.add(project)
-    db.commit()
-    db.refresh(project)
+    p_dict = project.model_dump()
+    await db.projects.insert_one(p_dict)
     return {"id": project.id, "message": "Project imported successfully"}
 
 
 # ═══════════════════════════════════════════════════════
 #  TREE NODES
 # ═══════════════════════════════════════════════════════
-
-def _node_to_dict(node: TreeNode) -> dict:
-    return {
-        "id": node.id,
-        "project_id": node.project_id,
-        "parent_id": node.parent_id,
-        "node_type": node.node_type,
-        "name": node.name,
-        "order": node.order,
-        "data": node.data,
-        "created_at": node.created_at,
-    }
-
 
 class CreateNodeRequest(BaseModel):
     project_id: str
@@ -666,10 +664,10 @@ async def generate_from_prompt(
 @app.post("/api/tree/nodes")
 async def create_tree_node(
     req: CreateNodeRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    project = db.query(Project).filter(Project.id == req.project_id).first()
+    project = await db.projects.find_one({"id": req.project_id})
     if not project:
         raise HTTPException(404, "Project not found")
 
@@ -680,10 +678,10 @@ async def create_tree_node(
         name=req.name,
         order=req.order,
     )
-    db.add(node)
-    db.commit()
-    db.refresh(node)
-    return _node_to_dict(node)
+    n_dict = node.model_dump()
+    await db.tree_nodes.insert_one(n_dict)
+    n_dict.pop("_id", None)
+    return n_dict
 
 
 class CreateNodesBatchRequest(BaseModel):
@@ -693,11 +691,11 @@ class CreateNodesBatchRequest(BaseModel):
 @app.post("/api/tree/nodes/batch")
 async def create_tree_nodes_batch(
     req: CreateNodesBatchRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Create multiple nodes in one call (used by AI suggest structure)."""
     created = []
+    nodes_to_insert = []
     for n in req.nodes:
         node = TreeNode(
             project_id=n.project_id,
@@ -706,27 +704,29 @@ async def create_tree_nodes_batch(
             name=n.name,
             order=n.order,
         )
-        db.add(node)
-        db.flush()  # get the id before commit
-        created.append(_node_to_dict(node))
-    db.commit()
+        n_dict = node.model_dump()
+        nodes_to_insert.append(n_dict)
+        n_dict_copy = n_dict.copy()
+        n_dict_copy.pop("_id", None)
+        created.append(n_dict_copy)
+        
+    if nodes_to_insert:
+        await db.tree_nodes.insert_many(nodes_to_insert)
+        
     return created
 
 
 @app.get("/api/tree/nodes/{project_id}")
 async def get_tree_nodes(
     project_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Return all nodes for a project as a flat list (frontend builds the tree)."""
-    nodes = (
-        db.query(TreeNode)
-        .filter(TreeNode.project_id == project_id)
-        .order_by(TreeNode.order, TreeNode.created_at)
-        .all()
-    )
-    return [_node_to_dict(n) for n in nodes]
+    cursor = db.tree_nodes.find({"project_id": project_id}).sort([("order", 1), ("created_at", 1)])
+    nodes = await cursor.to_list(length=10000)
+    for n in nodes:
+        n.pop("_id", None)
+    return nodes
 
 
 class UpdateNodeRequest(BaseModel):
@@ -739,33 +739,37 @@ class UpdateNodeRequest(BaseModel):
 async def update_tree_node(
     node_id: str,
     req: UpdateNodeRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    node = db.query(TreeNode).filter(TreeNode.id == node_id).first()
-    if not node:
-        raise HTTPException(404, "Node not found")
+    update_data = {}
     if req.name is not None:
-        node.name = req.name
+        update_data["name"] = req.name
     if req.node_type is not None:
-        node.node_type = req.node_type
+        update_data["node_type"] = req.node_type
     if req.order is not None:
-        node.order = req.order
-    db.commit()
-    return _node_to_dict(node)
+        update_data["order"] = req.order
+        
+    if update_data:
+        result = await db.tree_nodes.update_one({"id": node_id}, {"$set": update_data})
+        if result.matched_count == 0:
+            raise HTTPException(404, "Node not found")
+            
+    node = await db.tree_nodes.find_one({"id": node_id})
+    if node:
+        node.pop("_id", None)
+    return node
 
 
 @app.delete("/api/tree/nodes/{node_id}")
 async def delete_tree_node(
     node_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    node = db.query(TreeNode).filter(TreeNode.id == node_id).first()
-    if not node:
+    result = await db.tree_nodes.delete_one({"id": node_id})
+    if result.deleted_count == 0:
         raise HTTPException(404, "Node not found")
-    db.delete(node)
-    db.commit()
     return {"message": "Node deleted"}
 
 
@@ -777,18 +781,21 @@ class PatchNodeDataRequest(BaseModel):
 async def patch_node_data(
     node_id: str,
     req: PatchNodeDataRequest,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """Write or merge AI output into a node's data field."""
-    node = db.query(TreeNode).filter(TreeNode.id == node_id).first()
+    node = await db.tree_nodes.find_one({"id": node_id})
     if not node:
         raise HTTPException(404, "Node not found")
-    existing = node.data or {}
+        
+    existing = node.get("data") or {}
     existing.update(req.data)
-    node.data = existing
-    db.commit()
-    return _node_to_dict(node)
+    
+    await db.tree_nodes.update_one({"id": node_id}, {"$set": {"data": existing}})
+    
+    node["data"] = existing
+    node.pop("_id", None)
+    return node
 
 
 # ── Suggest child structure for a Feature node ────────────────────────────────
@@ -815,25 +822,21 @@ SUGGESTED_CHILDREN = {
 @app.post("/api/tree/nodes/{node_id}/suggest-structure")
 async def suggest_structure(
     node_id: str,
-    db: Session = Depends(get_db),
+    db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    """
-    Return AI-suggested child node templates for this node.
-    The frontend shows these for user confirmation before creating them.
-    """
-    node = db.query(TreeNode).filter(TreeNode.id == node_id).first()
+    node = await db.tree_nodes.find_one({"id": node_id})
     if not node:
         raise HTTPException(404, "Node not found")
 
-    suggestions = SUGGESTED_CHILDREN.get(node.node_type, [
+    suggestions = SUGGESTED_CHILDREN.get(node.get("node_type"), [
         {"node_type": "Custom", "name": "Sub-item 1"},
         {"node_type": "Custom", "name": "Sub-item 2"},
     ])
 
     return {
         "node_id": node_id,
-        "node_name": node.name,
-        "node_type": node.node_type,
+        "node_name": node.get("name"),
+        "node_type": node.get("node_type"),
         "suggestions": suggestions,
     }

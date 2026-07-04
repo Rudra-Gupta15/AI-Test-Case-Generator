@@ -8,7 +8,7 @@ import RightPanel from '../components/tree/RightPanel.jsx'
 import NodeDrawer from '../components/tree/NodeDrawer.jsx'
 import NodeDetailView from '../components/tree/NodeDetailView.jsx'
 import { useAuth } from '../context/AuthContext.jsx'
-
+import '../styles/tree-redesign.css'
 /**
  * Build an ancestor chain for a node up to (but not including) the project root.
  * Returns array of { id, name } from root → node.
@@ -110,9 +110,9 @@ export default function TreeBuilder() {
   return (
     <div className="tree-builder-page">
       {/* Top nav */}
-      <header className="tree-builder-nav" style={{ background: '#0f172a', borderBottom: '1px solid #1e293b', padding: '12px 24px', color: '#ffffff' }}>
+      <header className="tree-builder-nav" style={{ background: '#000000', borderBottom: '1px solid #222222', padding: '12px 24px', color: '#ffffff' }}>
         <button 
-          style={{ background: 'rgba(255,255,255,0.1)', color: '#ffffff', border: 'none', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
+          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer', display: 'flex', alignItems: 'center', gap: '6px' }} 
           onClick={() => navigate('/projects')}
         >
           <span>?</span> Projects
@@ -123,7 +123,7 @@ export default function TreeBuilder() {
           {project.testing_type && <span style={{ fontSize: '12px', padding: '2px 8px', borderRadius: '4px', background: 'rgba(59, 130, 246, 0.2)', color: '#93c5fd', fontWeight: '600' }}>{project.testing_type}</span>}
         </div>
         <button 
-          style={{ background: 'transparent', border: '1px solid #ef4444', color: '#ef4444', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }} 
+          style={{ background: 'transparent', border: '1px solid #ffffff', color: '#ffffff', padding: '6px 12px', borderRadius: '6px', fontSize: '13px', fontWeight: '600', cursor: 'pointer' }} 
           onClick={() => { logout(); navigate('/login') }}
         >
           Sign Out

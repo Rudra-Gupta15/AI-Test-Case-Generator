@@ -1,0 +1,353 @@
+/* -------------------------------------------------------------
+ * TREE BUILDER REDESIGN STYLES
+ * ------------------------------------------------------------- */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700&display=swap');
+
+.tree-builder-page {
+  font-family: 'Inter', sans-serif !important;
+}
+
+.tree-builder-panels {
+  display: grid !important;
+  grid-template-columns: 320px 1fr 380px !important;
+  height: calc(100vh - 64px) !important;
+  gap: 0px !important;
+  background: #121212 !important;
+  border-top: 1px solid #2a2a2a;
+}
+
+/* Hide scrollbars for panels */
+.tree-left-panel::-webkit-scrollbar,
+.tree-panel-body::-webkit-scrollbar,
+.left-panel-body::-webkit-scrollbar,
+.chat-messages::-webkit-scrollbar,
+.tree-middle-panel::-webkit-scrollbar,
+.chat-right-panel::-webkit-scrollbar,
+*::-webkit-scrollbar {
+  display: none !important;
+}
+.tree-left-panel, .tree-panel-body, .left-panel-body, .chat-messages, .tree-middle-panel, .chat-right-panel, * {
+  -ms-overflow-style: none !important;
+  scrollbar-width: none !important;
+}
+
+/* ==============================================================
+   LEFT PANEL (BLACK & WHITE)
+============================================================== */
+.tree-left-panel {
+  background: #121212 !important;
+  border-right: 1px solid #2a2a2a !important;
+  color: #ffffff !important;
+}
+
+.tree-left-panel .tree-panel-header {
+  background: #121212 !important;
+  border-bottom: 1px solid #2a2a2a !important;
+}
+
+.tree-left-panel .tree-panel-header h3 {
+  color: #ffffff !important;
+  font-weight: 600 !important;
+  letter-spacing: 1px !important;
+}
+
+.tree-left-panel .form-field label {
+  color: #a3a3a3 !important;
+  font-weight: 500 !important;
+  font-size: 13px !important;
+  margin-bottom: 6px !important;
+}
+
+.tree-left-panel .form-field input,
+.tree-left-panel .form-field textarea,
+.tree-left-panel .form-field select {
+  background: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  border-radius: 6px !important;
+  padding: 10px 14px !important;
+  box-shadow: none !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+}
+
+.tree-left-panel .form-field input:focus,
+.tree-left-panel .form-field textarea:focus,
+.tree-left-panel .form-field select:focus {
+  border-color: #ffffff !important;
+  outline: none !important;
+  box-shadow: 0 0 0 2px rgba(255, 255, 255, 0.1) !important;
+}
+
+.tree-left-panel .left-panel-save-btn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  font-weight: 600 !important;
+  border-radius: 6px !important;
+  box-shadow: none !important;
+  border: none !important;
+  padding: 12px !important;
+  text-transform: uppercase !important;
+  letter-spacing: 0.5px !important;
+  margin-top: 24px !important;
+  transition: all 0.2s ease !important;
+}
+
+.tree-left-panel .left-panel-save-btn:hover:not(:disabled) {
+  background: #d4d4d4 !important;
+  transform: translateY(-1px) !important;
+}
+
+
+/* ==============================================================
+   MIDDLE PANEL (PERFECT TREE / VS CODE STYLE)
+============================================================== */
+.tree-middle-panel {
+  background: #ffffff !important;
+  border-left: 1px solid #e5e5e5 !important;
+  border-right: 1px solid #e5e5e5 !important;
+  overflow: hidden !important;
+  display: flex !important;
+  flex-direction: column !important;
+}
+
+.tree-middle-panel .tree-panel-header {
+  background: #ffffff !important;
+  border-bottom: 1px solid #e5e5e5 !important;
+}
+
+.tree-middle-panel .tree-panel-header h3 {
+  color: #000000 !important;
+  font-weight: 600 !important;
+  text-transform: uppercase !important;
+  font-size: 11px !important;
+  letter-spacing: 0.5px !important;
+}
+
+.tree-panel-body {
+  flex: 1 !important;
+  overflow-y: auto !important;
+  padding: 8px 0 !important;
+}
+
+/* VS Code Tree Styling */
+.vscode-tree-row {
+  display: flex !important;
+  align-items: center !important;
+  padding: 4px 8px !important;
+  cursor: pointer !important;
+  user-select: none !important;
+  font-size: 13px !important;
+  line-height: 22px !important;
+  color: #333333 !important;
+  transition: background-color 0.1s !important;
+  position: relative !important;
+}
+
+.vscode-tree-row:hover {
+  background-color: #f4f4f5 !important;
+}
+
+.vscode-tree-row.selected {
+  background-color: #e4e4e7 !important;
+  color: #000000 !important;
+}
+
+/* Identation Guides */
+.vscode-tree-indent-guide {
+  position: absolute !important;
+  left: 0 !important;
+  top: 0 !important;
+  bottom: 0 !important;
+  width: 1px !important;
+  background-color: transparent !important;
+}
+
+.tree-children:hover .vscode-tree-indent-guide {
+  background-color: #e5e5e5 !important;
+}
+
+.vscode-chevron {
+  width: 16px !important;
+  height: 16px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  margin-right: 4px !important;
+  color: #71717a !important;
+  transition: transform 0.15s !important;
+}
+
+.vscode-icon {
+  margin-right: 6px !important;
+  display: flex !important;
+  align-items: center !important;
+}
+
+.vscode-tree-name {
+  white-space: nowrap !important;
+  overflow: hidden !important;
+  text-overflow: ellipsis !important;
+  flex: 1 !important;
+}
+
+/* Inline form */
+.vscode-add-form {
+  display: flex !important;
+  align-items: center !important;
+  gap: 6px !important;
+  padding: 2px 0 !important;
+}
+
+.vscode-add-form select,
+.vscode-add-form input {
+  font-size: 13px !important;
+  padding: 2px 6px !important;
+  border: 1px solid #d4d4d7 !important;
+  border-radius: 2px !important;
+  outline: none !important;
+  background: #ffffff !important;
+}
+
+.vscode-add-form input:focus,
+.vscode-add-form select:focus {
+  border-color: #007fd4 !important;
+}
+
+.vscode-tree-badge {
+  font-size: 10px !important;
+  margin-left: 8px !important;
+  padding: 1px 4px !important;
+  background: #f4f4f5 !important;
+  border: 1px solid #e5e5e5 !important;
+  border-radius: 4px !important;
+  color: #71717a !important;
+  text-transform: uppercase !important;
+}
+
+.vscode-tree-row:hover .tree-item-add-btn,
+.vscode-tree-row.selected .tree-item-add-btn {
+  opacity: 1 !important;
+}
+
+.tree-item-add-btn {
+  opacity: 0 !important;
+  background: transparent !important;
+  border: none !important;
+  cursor: pointer !important;
+  padding: 2px !important;
+  margin-left: auto !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  color: #71717a !important;
+  border-radius: 4px !important;
+}
+
+.tree-item-add-btn:hover {
+  background: #e5e5e5 !important;
+  color: #000000 !important;
+}
+
+
+/* ==============================================================
+   RIGHT PANEL (CHATBOT)
+============================================================== */
+.chat-right-panel {
+  display: flex !important;
+  flex-direction: column !important;
+  height: 100% !important;
+  background: #121212 !important;
+  color: #ffffff !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.chat-right-panel .chat-header {
+  padding: 16px 20px !important;
+  background: #121212 !important;
+  border-bottom: 1px solid #2a2a2a !important;
+  font-weight: 600 !important;
+  color: #ffffff !important;
+  letter-spacing: 0.5px !important;
+  font-size: 14px !important;
+}
+
+.chat-right-panel .chat-messages {
+  flex: 1 !important;
+  padding: 20px !important;
+  overflow-y: auto !important;
+  display: flex !important;
+  flex-direction: column !important;
+  gap: 16px !important;
+  background: #121212 !important;
+}
+
+.chat-right-panel .chat-message {
+  max-width: 85% !important;
+  padding: 12px 16px !important;
+  border-radius: 12px !important;
+  font-size: 13.5px !important;
+  line-height: 1.5 !important;
+  word-wrap: break-word !important;
+}
+
+.chat-right-panel .chat-message.user {
+  align-self: flex-end !important;
+  background: #ffffff !important;
+  color: #000000 !important;
+  border-bottom-right-radius: 2px !important;
+}
+
+.chat-right-panel .chat-message.bot {
+  align-self: flex-start !important;
+  background: #1e1e1e !important;
+  color: #ffffff !important;
+  border: 1px solid #333333 !important;
+  border-bottom-left-radius: 2px !important;
+}
+
+.chat-right-panel .chat-input-area {
+  padding: 16px 20px !important;
+  background: #121212 !important;
+  border-top: 1px solid #2a2a2a !important;
+  display: flex !important;
+  gap: 12px !important;
+  align-items: center !important;
+}
+
+.chat-right-panel .chat-input-area input {
+  flex: 1 !important;
+  background: #1e1e1e !important;
+  border: 1px solid #333333 !important;
+  color: #ffffff !important;
+  padding: 12px 16px !important;
+  border-radius: 24px !important;
+  outline: none !important;
+  font-size: 14px !important;
+  transition: all 0.2s ease !important;
+  font-family: 'Inter', sans-serif !important;
+}
+
+.chat-right-panel .chat-input-area input:focus {
+  border-color: #ffffff !important;
+  box-shadow: 0 0 0 2px rgba(255,255,255,0.1) !important;
+}
+
+.chat-right-panel .chat-send-btn {
+  background: #ffffff !important;
+  color: #000000 !important;
+  border: none !important;
+  border-radius: 50% !important;
+  width: 44px !important;
+  height: 44px !important;
+  display: flex !important;
+  align-items: center !important;
+  justify-content: center !important;
+  cursor: pointer !important;
+  transition: opacity 0.2s, transform 0.2s !important;
+  font-size: 18px !important;
+}
+
+.chat-right-panel .chat-send-btn:hover {
+  transform: scale(1.05) !important;
+}

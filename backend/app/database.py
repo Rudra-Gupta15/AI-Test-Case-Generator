@@ -1,19 +1,15 @@
 import os
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker, declarative_base
+from motor.motor_asyncio import AsyncIOMotorClient
+from dotenv import load_dotenv
 
-DATABASE_URL = "sqlite:///./projects.db"
-# If you want to use PostgreSQL, change it to something like:
-# DATABASE_URL = "postgresql://user:password@localhost/dbname"
+load_dotenv()
 
-engine = create_engine(DATABASE_URL, connect_args={"check_same_thread": False} if "sqlite" in DATABASE_URL else {})
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
+MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+DB_NAME = "qa_intelligence"
+
+client = AsyncIOMotorClient(MONGODB_URL)
+database = client[DB_NAME]
 
 # Dependency
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+async def get_db():
+    yield database
