@@ -997,7 +997,8 @@
 }
 
 .sleek-list-item:hover {
-  border-color: var(--text-dark);
+  border-color: #3b82f6;
+  box-shadow: 0 0 12px rgba(59, 130, 246, 0.35);
 }
 
 .sleek-list-item.has-file {

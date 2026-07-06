@@ -32,6 +32,10 @@ export default function LegacyWorkspace() {
   const [step, setStep] = useState(1) // 1 = Upload, 2 = Analysis, 3 = Test Report
   const [sidebarCollapsed, setSidebarCollapsed] = useState(false)
   const [activeTab, setActiveTab] = useState('features') // Step 2 active tab
+  const [featuresPage, setFeaturesPage] = useState(1)
+  const [flowsPage, setFlowsPage] = useState(1)
+  const [issuesPage, setIssuesPage] = useState(1)
+  const itemsPerPage = 5
   const [previewFile, setPreviewFile] = useState(null) // Document preview state
   const [docPreviewHtml, setDocPreviewHtml] = useState(null)
   const [showPersonalizeModal, setShowPersonalizeModal] = useState(false)
@@ -71,6 +75,31 @@ export default function LegacyWorkspace() {
     }
     return () => clearInterval(interval)
   }, [submitting])
+
+
+  const renderPagination = (currentPage, totalItems, setPage, customItemsPerPage = itemsPerPage) => {
+    const totalPages = Math.ceil(totalItems / customItemsPerPage)
+    if (totalPages <= 1) return null
+    return (
+      <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '24px' }}>
+        <button
+          onClick={() => setPage(p => Math.max(1, p - 1))}
+          disabled={currentPage === 1}
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: currentPage === 1 ? '#93c5fd' : '#3b82f6', cursor: currentPage === 1 ? 'not-allowed' : 'pointer', color: '#ffffff', fontWeight: '500' }}
+        >
+          Previous
+        </button>
+        <span style={{ fontSize: '14px', color: '#64748b' }}>Page {currentPage} of {totalPages}</span>
+        <button
+          onClick={() => setPage(p => Math.min(totalPages, p + 1))}
+          disabled={currentPage === totalPages}
+          style={{ padding: '8px 16px', borderRadius: '6px', border: 'none', background: currentPage === totalPages ? '#93c5fd' : '#3b82f6', cursor: currentPage === totalPages ? 'not-allowed' : 'pointer', color: '#ffffff', fontWeight: '500' }}
+        >
+          Next
+        </button>
+      </div>
+    )
+  }
 
   const getStageProgress = (stage) => {
     switch (stage) {
@@ -199,22 +228,6 @@ export default function LegacyWorkspace() {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
-        
-        // Fetch files
-        try {
-          const filesResponse = await fetch(`/api/projects/${id}/files`)
-          if (filesResponse.ok) {
-            const files = await filesResponse.json()
-            if (files.brd) setBrd(files.brd)
-            if (files.fsd) setFsd(files.fsd)
-            if (files.srs) setSrs(files.srs)
-            if (files.frd) setFrd(files.frd)
-            if (files.images) setImages(files.images)
-          }
-        } catch (fileErr) {
-          console.error("Failed to load project files", fileErr)
-        }
-        
         setStep(1)
       } else {
         alert("Failed to load project")
@@ -397,11 +410,7 @@ export default function LegacyWorkspace() {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ 
-          job_id: job.id,
-          understanding: job.understanding,
-          test_report: job.test_report
-        }),
+        body: JSON.stringify({ job_id: job.id }),
       })
       if (response.ok) {
         alert("Project saved successfully!")
@@ -792,192 +801,192 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
           {/* Step-Specific Sidebar Content */}
 
-        <div className="sidebar-middle">
-          {step === 1 && (
-            <div className="sidebar-hero-content">
-              <h1>Upload your specs.<br />Get a test plan.</h1>
+          <div className="sidebar-middle">
+            {step === 1 && (
+              <div className="sidebar-hero-content">
+                <h1>Upload your specs.<br />Get a test plan.</h1>
 
-              {/* Visual Pipeline */}
-              <div className="sidebar-pipeline">
-                <div className="pipeline-node">
-                  <span className="node-icon">📥</span>
-                  <span className="node-text">Inputs</span>
-                </div>
-                <div className="pipeline-arrow">➔</div>
-                <div className="pipeline-node active">
-                  <span className="node-icon">🧠</span>
-                  <span className="node-text">AI Analysis</span>
-                </div>
-                <div className="pipeline-arrow">➔</div>
-                <div className="pipeline-node">
-                  <span className="node-icon">📋</span>
-                  <span className="node-text">Test Plan</span>
-                </div>
-              </div>
-
-              {/* Feature Grid */}
-              <div className="sidebar-features-grid">
-                <div className="sidebar-feature-item">
-                  <span className="feature-item-icon">📄</span>
-                  <div className="feature-item-info">
-                    <strong>Specs & Docs</strong>
-                    <span>Parses BRD & FSD requirements</span>
+                {/* Visual Pipeline */}
+                <div className="sidebar-pipeline">
+                  <div className="pipeline-node">
+                    <span className="node-icon">📥</span>
+                    <span className="node-text">Inputs</span>
+                  </div>
+                  <div className="pipeline-arrow">➔</div>
+                  <div className="pipeline-node active">
+                    <span className="node-icon">🧠</span>
+                    <span className="node-text">AI Analysis</span>
+                  </div>
+                  <div className="pipeline-arrow">➔</div>
+                  <div className="pipeline-node">
+                    <span className="node-icon">📋</span>
+                    <span className="node-text">Test Plan</span>
                   </div>
                 </div>
-                <div className="sidebar-feature-item">
-                  <span className="feature-item-icon">🖼️</span>
-                  <div className="feature-item-info">
-                    <strong>UI & Figma</strong>
-                    <span>Reads mockups & Figma layers</span>
-                  </div>
-                </div>
-                <div className="sidebar-feature-item">
-                  <span className="feature-item-icon">🔍</span>
-                  <div className="feature-item-info">
-                    <strong>Gap Analysis</strong>
-                    <span>Flags document contradictions</span>
-                  </div>
-                </div>
-                <div className="sidebar-feature-item">
-                  <span className="feature-item-icon">⚡</span>
-                  <div className="feature-item-info">
-                    <strong>Test Suite</strong>
-                    <span>Generates P0–P3 test cases</span>
-                  </div>
-                </div>
-              </div>
-            </div>
-          )}
 
-          {step === 2 && job?.understanding && (
-            <div className="sidebar-analysis-controls">
-              <div className="overview-card-sidebar">
-                <div className="product-badge-sidebar">Product Overview</div>
-                <h3 className="product-type-sidebar">{job.understanding.product_type}</h3>
-                <p className="product-purpose-sidebar">{job.understanding.purpose}</p>
-              </div>
-
-              <div className="stats-grid-sidebar">
-                <div className={`stat-card-sidebar ${activeTab === 'features' ? 'active' : ''}`} onClick={() => setActiveTab('features')}>
-                  <span className="stat-num-sidebar">{featuresCount}</span>
-                  <span className="stat-label-sidebar">Features</span>
-                </div>
-                <div className={`stat-card-sidebar ${activeTab === 'flows' ? 'active' : ''}`} onClick={() => setActiveTab('flows')}>
-                  <span className="stat-num-sidebar">{flowsCount}</span>
-                  <span className="stat-label-sidebar">Flows</span>
-                </div>
-                <div className={`stat-card-sidebar ${activeTab === 'issues' ? 'active' : ''}`} onClick={() => setActiveTab('issues')}>
-                  <span className={`stat-num-sidebar ${totalIssues > 0 ? 'alert' : ''}`}>{totalIssues}</span>
-                  <span className="stat-label-sidebar">Issues</span>
-                </div>
-              </div>
-            </div>
-          )}
-
-          {step === 3 && job?.test_report && (
-            <div className="sidebar-report-controls">
-              {(() => {
-                const treeData = {}
-                const cases = Array.isArray(job.test_report?.test_cases) ? job.test_report.test_cases : []
-                cases.forEach((tc) => {
-                  const sec = tc.section || 'General'
-                  if (!treeData[sec]) treeData[sec] = []
-                  treeData[sec].push(tc)
-                })
-
-                return (
-                  <div className="test-explorer-tree">
-                    <div className="tree-root" onClick={() => setSelectedView({ type: 'all', id: null })} style={{ cursor: 'pointer' }}>
-                      <span className="tree-icon">📁</span>
-                      <span className="tree-label">{job.understanding?.product_type || "Test Project"}</span>
-                    </div>
-                    <div className="tree-children">
-                      {Object.keys(treeData).map((sec, idx) => (
-                        <TreeFolder
-                          key={idx}
-                          section={sec}
-                          testCases={treeData[sec]}
-                          selectedView={selectedView}
-                          onSelect={(type, id) => setSelectedView({ type, id })}
-                        />
-                      ))}
+                {/* Feature Grid */}
+                <div className="sidebar-features-grid">
+                  <div className="sidebar-feature-item">
+                    <span className="feature-item-icon">📄</span>
+                    <div className="feature-item-info">
+                      <strong>Specs & Docs</strong>
+                      <span>Parses BRD & FSD requirements</span>
                     </div>
                   </div>
-                )
-              })()}
-            </div>
-          )}
-
-          {step === 4 && (
-            <div className="sidebar-section" style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
-              <div style={{ width: '180px', height: '180px', marginBottom: '30px', position: 'relative' }}>
-                <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>
-                  <defs>
-                    <linearGradient id="histGrad" x1="0%" y1="0%" x2="100%" y2="100%">
-                      <stop offset="0%" stopColor="#3b82f6" />
-                      <stop offset="100%" stopColor="#8b5cf6" />
-                    </linearGradient>
-                    <linearGradient id="ringGrad" x1="100%" y1="0%" x2="0%" y2="100%">
-                      <stop offset="0%" stopColor="rgba(59,130,246,0.5)" />
-                      <stop offset="100%" stopColor="rgba(139,92,246,0.1)" />
-                    </linearGradient>
-                  </defs>
-
-                  {/* Outer animated rings */}
-                  <circle cx="100" cy="100" r="80" fill="none" stroke="url(#ringGrad)" strokeWidth="2" strokeDasharray="10 20" className="spin-slow" />
-                  <circle cx="100" cy="100" r="65" fill="none" stroke="url(#ringGrad)" strokeWidth="1" strokeDasharray="50 10" className="spin-slow-reverse" />
-
-                  {/* Center glowing core */}
-                  <circle cx="100" cy="100" r="40" fill="url(#histGrad)" opacity="0.2" />
-                  <circle cx="100" cy="100" r="25" fill="url(#histGrad)" />
-
-                  {/* Clock hands */}
-                  <line x1="100" y1="100" x2="100" y2="80" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-                  <line x1="100" y1="100" x2="115" y2="115" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
-
-                  {/* Floating data dots */}
-                  <circle cx="150" cy="50" r="4" fill="#60a5fa" className="float-anim" style={{ animationDelay: '0s' }} />
-                  <circle cx="40" cy="130" r="3" fill="#a78bfa" className="float-anim" style={{ animationDelay: '1s' }} />
-                  <circle cx="140" cy="160" r="5" fill="#818cf8" className="float-anim" style={{ animationDelay: '2s' }} />
-                </svg>
+                  <div className="sidebar-feature-item">
+                    <span className="feature-item-icon">🖼️</span>
+                    <div className="feature-item-info">
+                      <strong>UI & Figma</strong>
+                      <span>Reads mockups & Figma layers</span>
+                    </div>
+                  </div>
+                  <div className="sidebar-feature-item">
+                    <span className="feature-item-icon">🔍</span>
+                    <div className="feature-item-info">
+                      <strong>Gap Analysis</strong>
+                      <span>Flags document contradictions</span>
+                    </div>
+                  </div>
+                  <div className="sidebar-feature-item">
+                    <span className="feature-item-icon">⚡</span>
+                    <div className="feature-item-info">
+                      <strong>Test Suite</strong>
+                      <span>Generates P0–P3 test cases</span>
+                    </div>
+                  </div>
+                </div>
               </div>
+            )}
 
-              <h2 style={{ fontSize: '20px', fontWeight: 'bold', background: 'linear-gradient(to right, #93c5fd, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '12px', textAlign: 'center' }}>
-                Project Archives
-              </h2>
-              <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', textAlign: 'center', marginBottom: '40px', padding: '0 10px' }}>
-                Access your past test suites. Pick up exactly where you left off.
-              </p>
+            {step === 2 && job?.understanding && (
+              <div className="sidebar-analysis-controls">
+                <div className="overview-card-sidebar">
+                  <div className="product-badge-sidebar">Product Overview</div>
+                  <h3 className="product-type-sidebar">{job.understanding.product_type}</h3>
+                  <p className="product-purpose-sidebar">{job.understanding.purpose}</p>
+                </div>
 
-              <div style={{ width: '100%', padding: '0 10px' }}>
-                <h3 style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#64748b', marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
-                  Recent Projects
-                </h3>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {projects.slice(0, 3).map((p, i) => (
-                    <div key={p.id} onClick={() => loadProject(p.id)} style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }} onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)' }}>
-                      <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #1e293b, #0f172a)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>
-                        {i + 1}
+                <div className="stats-grid-sidebar">
+                  <div className={`stat-card-sidebar ${activeTab === 'features' ? 'active' : ''}`} onClick={() => setActiveTab('features')}>
+                    <span className="stat-num-sidebar">{featuresCount}</span>
+                    <span className="stat-label-sidebar">Features</span>
+                  </div>
+                  <div className={`stat-card-sidebar ${activeTab === 'flows' ? 'active' : ''}`} onClick={() => setActiveTab('flows')}>
+                    <span className="stat-num-sidebar">{flowsCount}</span>
+                    <span className="stat-label-sidebar">Flows</span>
+                  </div>
+                  <div className={`stat-card-sidebar ${activeTab === 'issues' ? 'active' : ''}`} onClick={() => setActiveTab('issues')}>
+                    <span className={`stat-num-sidebar ${totalIssues > 0 ? 'alert' : ''}`}>{totalIssues}</span>
+                    <span className="stat-label-sidebar">Issues</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {step === 3 && job?.test_report && (
+              <div className="sidebar-report-controls">
+                {(() => {
+                  const treeData = {}
+                  const cases = Array.isArray(job.test_report?.test_cases) ? job.test_report.test_cases : []
+                  cases.forEach((tc) => {
+                    const sec = tc.section || 'General'
+                    if (!treeData[sec]) treeData[sec] = []
+                    treeData[sec].push(tc)
+                  })
+
+                  return (
+                    <div className="test-explorer-tree">
+                      <div className="tree-root" onClick={() => setSelectedView({ type: 'all', id: null })} style={{ cursor: 'pointer' }}>
+                        <span className="tree-icon">📁</span>
+                        <span className="tree-label">{job.understanding?.product_type || "Test Project"}</span>
                       </div>
-                      <div style={{ flex: 1, overflow: 'hidden' }}>
-                        <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name || 'Unnamed Project'}</div>
-                        <div style={{ color: '#64748b', fontSize: '11px', marginTop: '4px' }}>{p.total_cases} tests</div>
+                      <div className="tree-children">
+                        {Object.keys(treeData).map((sec, idx) => (
+                          <TreeFolder
+                            key={idx}
+                            section={sec}
+                            testCases={treeData[sec]}
+                            selectedView={selectedView}
+                            onSelect={(type, id) => setSelectedView({ type, id })}
+                          />
+                        ))}
                       </div>
                     </div>
-                  ))}
-                  {projects.length === 0 && (
-                    <div style={{ color: '#475569', fontSize: '13px', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>No recent projects</div>
-                  )}
+                  )
+                })()}
+              </div>
+            )}
+
+            {step === 4 && (
+              <div className="sidebar-section" style={{ padding: '24px 0', display: 'flex', flexDirection: 'column', alignItems: 'center' }}>
+                <div style={{ width: '180px', height: '180px', marginBottom: '30px', position: 'relative' }}>
+                  <svg viewBox="0 0 200 200" xmlns="http://www.w3.org/2000/svg" style={{ width: '100%', height: '100%', filter: 'drop-shadow(0 0 20px rgba(59,130,246,0.3))' }}>
+                    <defs>
+                      <linearGradient id="histGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+                        <stop offset="0%" stopColor="#3b82f6" />
+                        <stop offset="100%" stopColor="#8b5cf6" />
+                      </linearGradient>
+                      <linearGradient id="ringGrad" x1="100%" y1="0%" x2="0%" y2="100%">
+                        <stop offset="0%" stopColor="rgba(59,130,246,0.5)" />
+                        <stop offset="100%" stopColor="rgba(139,92,246,0.1)" />
+                      </linearGradient>
+                    </defs>
+
+                    {/* Outer animated rings */}
+                    <circle cx="100" cy="100" r="80" fill="none" stroke="url(#ringGrad)" strokeWidth="2" strokeDasharray="10 20" className="spin-slow" />
+                    <circle cx="100" cy="100" r="65" fill="none" stroke="url(#ringGrad)" strokeWidth="1" strokeDasharray="50 10" className="spin-slow-reverse" />
+
+                    {/* Center glowing core */}
+                    <circle cx="100" cy="100" r="40" fill="url(#histGrad)" opacity="0.2" />
+                    <circle cx="100" cy="100" r="25" fill="url(#histGrad)" />
+
+                    {/* Clock hands */}
+                    <line x1="100" y1="100" x2="100" y2="80" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+                    <line x1="100" y1="100" x2="115" y2="115" stroke="#fff" strokeWidth="4" strokeLinecap="round" />
+
+                    {/* Floating data dots */}
+                    <circle cx="150" cy="50" r="4" fill="#60a5fa" className="float-anim" style={{ animationDelay: '0s' }} />
+                    <circle cx="40" cy="130" r="3" fill="#a78bfa" className="float-anim" style={{ animationDelay: '1s' }} />
+                    <circle cx="140" cy="160" r="5" fill="#818cf8" className="float-anim" style={{ animationDelay: '2s' }} />
+                  </svg>
+                </div>
+
+                <h2 style={{ fontSize: '20px', fontWeight: 'bold', background: 'linear-gradient(to right, #93c5fd, #c4b5fd)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', marginBottom: '12px', textAlign: 'center' }}>
+                  Project Archives
+                </h2>
+                <p style={{ color: '#94a3b8', fontSize: '14px', lineHeight: '1.6', textAlign: 'center', marginBottom: '40px', padding: '0 10px' }}>
+                  Access your past test suites. Pick up exactly where you left off.
+                </p>
+
+                <div style={{ width: '100%', padding: '0 10px' }}>
+                  <h3 style={{ fontSize: '11px', textTransform: 'uppercase', letterSpacing: '1.5px', color: '#3b82f6', marginBottom: '16px', borderBottom: '1px solid #334155', paddingBottom: '8px' }}>
+                    Recent Projects
+                  </h3>
+                  <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
+                    {projects.slice(0, 3).map((p, i) => (
+                      <div key={p.id} onClick={() => loadProject(p.id)} style={{ padding: '12px', background: 'rgba(255,255,255,0.03)', borderRadius: '8px', cursor: 'pointer', border: '1px solid rgba(255,255,255,0.05)', transition: 'all 0.2s', display: 'flex', alignItems: 'center', gap: '12px' }} onMouseOver={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.08)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.1)' }} onMouseOut={(e) => { e.currentTarget.style.background = 'rgba(255,255,255,0.03)'; e.currentTarget.style.borderColor = 'rgba(255,255,255,0.05)' }}>
+                        <div style={{ width: '32px', height: '32px', borderRadius: '50%', background: 'linear-gradient(135deg, #1e293b, #0f172a)', display: 'flex', alignItems: 'center', justifyContent: 'center', border: '1px solid #334155', color: '#94a3b8', fontSize: '12px', fontWeight: 'bold' }}>
+                          {i + 1}
+                        </div>
+                        <div style={{ flex: 1, overflow: 'hidden' }}>
+                          <div style={{ color: '#e2e8f0', fontSize: '13px', fontWeight: '500', whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis' }}>{p.name || 'Unnamed Project'}</div>
+                          <div style={{ color: '#3b82f6', fontSize: '11px', marginTop: '4px' }}>{p.total_cases} tests</div>
+                        </div>
+                      </div>
+                    ))}
+                    {projects.length === 0 && (
+                      <div style={{ color: '#475569', fontSize: '13px', fontStyle: 'italic', textAlign: 'center', padding: '20px 0' }}>No recent projects</div>
+                    )}
+                  </div>
                 </div>
               </div>
-            </div>
-          )}
-        </div>
+            )}
+          </div>
 
-        <div className="sidebar-bottom">
-          <span className="help-icon">❔</span> Help & Documentation
+          <div className="sidebar-bottom">
+            <span className="help-icon">❔</span> Help & Documentation
+          </div>
         </div>
-      </div>
       )}
 
       <div className={`app-main-content step-${step}`}>
@@ -1064,21 +1073,6 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 History
               </button>
 
-              {job?.name && (
-                <>
-                  <div style={{ width: '1px', height: '20px', background: '#27272a', margin: '0 8px' }} />
-                  <div className="active-workspace-nav-pill" style={{ display: 'flex', alignItems: 'center', gap: '8px', padding: '4px 10px', background: 'rgba(16, 185, 129, 0.08)', border: '1px solid rgba(16, 185, 129, 0.15)', borderRadius: '6px' }}>
-                    <div style={{ position: 'relative', width: '8px', height: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
-                      <div className="pulse-ring" style={{ width: '18px', height: '18px' }}></div>
-                      <div className="active-project-dot" style={{ width: '8px', height: '8px' }}></div>
-                    </div>
-                    <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
-                      <span style={{ fontSize: '9px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#10b981', fontWeight: '700' }}>Active Workspace</span>
-                      <span style={{ fontSize: '13px', color: '#ffffff', fontWeight: '600', maxWidth: '200px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.name}</span>
-                    </div>
-                  </div>
-                </>
-              )}
             </div>
             <button className="nav-email-btn" onClick={() => navigate("/project/new/legacy")}>
               {/* <button className="nav-email-btn" onClick={() => setShowCreateProjectModal(true)}> */}
@@ -1091,9 +1085,24 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
         {/* Step 1: Upload Main Content */}
         {step === 1 && (
           <div className="main-step-container">
-            <div className="main-step-header">
-              <h2>1. Upload Specifications</h2>
-              <p>Provide your product documents and design references below. You can analyze using any single document or design reference.</p>
+            <div className="main-step-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start' }}>
+              <div>
+                <h2>1. Upload Specifications</h2>
+                <p>Provide your product documents and design references below. You can analyze using any single document or design reference.</p>
+              </div>
+              {job?.name && (
+                <div className="active-workspace-nav-pill" style={{ display: 'flex', alignItems: 'center', gap: '12px', padding: '12px 16px', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', marginTop: '4px', cursor: 'pointer' }}>
+                  <div style={{ position: 'relative', width: '8px', height: '8px', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
+                    <div className="pulse-ring" style={{ width: '18px', height: '18px' }}></div>
+                    <div className="active-project-dot" style={{ width: '8px', height: '8px', background: '#10b981' }}></div>
+                  </div>
+                  <div style={{ display: 'flex', flexDirection: 'column', lineHeight: '1.2' }}>
+                    <span style={{ fontSize: '10px', textTransform: 'uppercase', letterSpacing: '0.5px', color: '#10b981', fontWeight: '800' }}>Active Workspace</span>
+                    <span style={{ fontSize: '14px', color: '#0f172a', fontWeight: '700', maxWidth: '240px', overflow: 'hidden', textOverflow: 'ellipsis', whiteSpace: 'nowrap' }}>{job.name}</span>
+                  </div>
+                  <span style={{ fontSize: '14px', color: '#3b82f6', fontWeight: '600', marginLeft: '8px' }}>›</span>
+                </div>
+              )}
             </div>
 
             {submitting ? (
@@ -1139,21 +1148,21 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
             ) : (
               <div className="upload-inputs-container new-sleek-design">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'stretch', width: '100%' }}>
-                  
-                  {/* LEFT COLUMN: PROJECT DOCUMENTS & CODE */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', flex: '1 1 400px', width: '100%' }}>
+                  {/* COLUMN 1: PROJECT DOCUMENTS */}
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
                     {/* SECTION 1: PROJECT DOCUMENTS */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>📄</span> Project Documents</h3>
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #f59e0b', color: '#f59e0b', background: '#fffbeb', fontSize: '16px', flexShrink: 0 }}>📁</span> Project Documents</h3>
                         <p>Upload any requirements or spec documents (Optional)</p>
                       </div>
                       <div className="sleek-upload-list">
 
                         {/* BRD */}
-                        <div className={`sleek-list-item ${brd ? 'has-file' : ''}`}>
-                          <div className="sleek-item-left">
-                            <span className="sleek-item-label">BRD (Business Requirements)</span>
+                        <div className={`sleek-list-item ${brd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>BRD (Business Requirements)</span>
                           </div>
                           <div className="sleek-item-right">
                             {brd ? (
@@ -1163,8 +1172,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn">
-                                Upload
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
                             )}
@@ -1172,9 +1181,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* FSD */}
-                        <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`}>
-                          <div className="sleek-item-left">
-                            <span className="sleek-item-label">FSD (Functional Specs)</span>
+                        <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>FSD (Functional Specs)</span>
                           </div>
                           <div className="sleek-item-right">
                             {fsd ? (
@@ -1184,8 +1194,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn">
-                                Upload
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
                               </label>
                             )}
@@ -1193,9 +1203,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* SRS */}
-                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`}>
-                          <div className="sleek-item-left">
-                            <span className="sleek-item-label">SRS (Software Requirements)</span>
+                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>SRS (Software Requirements)</span>
                           </div>
                           <div className="sleek-item-right">
                             {srs ? (
@@ -1205,8 +1216,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn">
-                                Upload
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
                               </label>
                             )}
@@ -1214,9 +1225,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* FRD */}
-                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`}>
-                          <div className="sleek-item-left">
-                            <span className="sleek-item-label">FRD (Functional Requirements)</span>
+                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>FRD (Functional Requirements)</span>
                           </div>
                           <div className="sleek-item-right">
                             {frd ? (
@@ -1226,8 +1238,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn">
-                                Upload
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
                             )}
@@ -1236,44 +1248,22 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
                       </div>
                     </div>
-
-                    {/* SECTION 3: EXTERNAL LINKS */}
-                    <div className="sleek-section">
-                      <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🔗</span> Code & Environment</h3>
-                        <p>Link your repository and deployed application (Optional)</p>
-                      </div>
-                      <div className="sleek-inputs-row">
-                        <div className="sleek-input-group">
-                          <label>GitHub Repository URL</label>
-                          <div className="sleek-input-wrapper">
-                            <input type="text" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} />
-                          </div>
-                        </div>
-                        <div className="sleek-input-group">
-                          <label>Deployed Project URL</label>
-                          <div className="sleek-input-wrapper">
-                            <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} />
-                          </div>
-                        </div>
-                      </div>
-                    </div>
                   </div>
 
-                  {/* RIGHT COLUMN: DESIGN & UI REFERENCES + SUBMIT CARD */}
-                  <div style={{ display: 'flex', flexDirection: 'column', gap: '32px', flex: '1 1 400px', width: '100%' }}>
+                  {/* COLUMN 2: DESIGN & UI REFERENCES */}
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
                     {/* SECTION 2: DESIGN & UI */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: '#f1f5f9', fontSize: '18px', border: '2px solid #000000', flexShrink: 0 }}>🎨</span> Design & UI References</h3>
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #ec4899', color: '#ec4899', background: '#fdf2f8', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-palette"></i></span> Design & UI References</h3>
                         <p>Upload mockup images or link your Figma designs (Optional)</p>
                       </div>
 
-                      <div className="sleek-list-item" style={{ flexDirection: 'column', alignItems: 'stretch' }}>
-                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0' }}>
-                          <span className="sleek-item-label">Reference Mockups (Images)</span>
-                          <label className="sleek-upload-btn">
-                            {images.length > 0 ? '+ Add More' : 'Upload Images'}
+                      <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
+                        <div className="sleek-list-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0', padding: '16px 20px' }}>
+                          <span className="sleek-item-label" style={{ fontWeight: '600' }}>Reference Mockups (Images)</span>
+                          <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                            <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>{images.length > 0 ? 'Add More' : 'Upload Images'}</span>
                             <input type="file" multiple accept="image/*" onChange={(e) => setImages([...images, ...Array.from(e.target.files)])} className="hidden-file-input" />
                           </label>
                         </div>
@@ -1289,43 +1279,73 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         )}
                       </div>
 
-                      <div className="sleek-inputs-row">
+                      <div className="sleek-inputs-row" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div className="sleek-input-group">
-                          <label>Figma File URL</label>
-                          <div className="sleek-input-wrapper">
-                            <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} />
+                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Figma File URL</label>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <span style={{ position: 'absolute', left: '16px', color: '#F24E1E', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-brands fa-figma"></i></span>
+                            <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://www.figma.com/file/..." />
                           </div>
                         </div>
                         <div className="sleek-input-group">
-                          <label>Figma API Token</label>
-                          <div className="sleek-input-wrapper">
-                            <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} />
-                            <button type="button" className="sleek-icon-btn" style={{ border: 'none', background: 'transparent', width: 'auto' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
+                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Figma API Token</label>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <span style={{ position: 'absolute', left: '16px', color: '#eab308', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-key"></i></span>
+                            <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 48px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="Enter your Figma API token" />
+                            <button type="button" className="sleek-icon-btn" style={{ position: 'absolute', right: '12px', border: 'none', background: 'transparent', width: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', cursor: 'pointer' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
                               {showFigmaToken ? '🙈' : '👁️'}
                             </button>
                           </div>
                         </div>
                       </div>
                     </div>
+                  </div>
 
-                    {/* SUBMIT ACTIONS SECTION CARD */}
-                    <div className="sleek-section" style={{ marginTop: 'auto', background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '8px', padding: '20px', margin: 0, boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '16px' }}>
-                      <div className="toggle-row sleek-toggle" style={{ margin: 0 }}>
-                        <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} />
-                        <label htmlFor="deep" style={{ fontWeight: '600', color: '#1e293b', fontSize: '13.5px', cursor: 'pointer' }}>Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
+                  {/* COLUMN 3: EXTERNAL LINKS & SUBMIT ACTIONS */}
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
+                    {/* SECTION 3: EXTERNAL LINKS */}
+                    <div className="sleek-section">
+                      <div className="sleek-section-header">
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #1e293b', color: '#1e293b', background: '#f1f5f9', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-code"></i></span> Code & Environment</h3>
+                        <p>Link your repository and deployed application (Optional)</p>
                       </div>
-                      <button
-                        className="sleek-submit-btn"
-                        onClick={startAnalysis}
-                        disabled={submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)}
-                        style={{ width: '100%', margin: 0, padding: '14px', fontSize: '14px', fontWeight: '750', textTransform: 'uppercase', letterSpacing: '0.5px' }}
-                      >
-                        {submitting ? 'Analyzing & Generating...' : 'Analyze Documents ➔'}
-                      </button>
+                      <div className="sleek-inputs-row" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
+                        <div className="sleek-input-group">
+                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>GitHub Repository URL</label>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <span style={{ position: 'absolute', left: '16px', color: '#3b82f6', fontSize: '18px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
+                              <i className="fa-brands fa-github"></i>
+                            </span>
+                            <input type="text" value={githubUrl} onChange={(e) => setGithubUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://github.com/username/repo" />
+                          </div>
+                        </div>
+                        <div className="sleek-input-group">
+                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Deployed Project URL</label>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <span style={{ position: 'absolute', left: '16px', color: '#14b8a6', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-globe"></i></span>
+                            <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://your-deployed-app.com" />
+                          </div>
+                        </div>
+                      </div>
                     </div>
 
                   </div>
+                </div>
 
+                {/* SUBMIT ACTIONS SECTION CARD */}
+                <div className="sleek-section" style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '12px', padding: '16px 24px 20px 24px', boxSizing: 'border-box', display: 'flex', flexDirection: 'column', gap: '16px', justifyContent: 'center', alignItems: 'flex-start', width: 'fit-content', maxWidth: '900px', alignSelf: 'center', margin: '-8px auto 0' }}>
+                  <div className="toggle-row sleek-toggle" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px' }}>
+                    <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} style={{ width: '16px', height: '16px', margin: 0, cursor: 'pointer' }} />
+                    <label htmlFor="deep" style={{ fontWeight: '600', color: '#475569', fontSize: '13.5px', cursor: 'pointer', lineHeight: '1.4' }}>Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
+                  </div>
+                  <button
+                    className="sleek-submit-btn"
+                    onClick={startAnalysis}
+                    disabled={submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)}
+                    style={{ width: '100%', margin: 0, padding: '12px 32px', fontSize: '15px', fontWeight: '800', textTransform: 'uppercase', letterSpacing: '0.5px', borderRadius: '8px', background: '#3b82f6', color: '#ffffff', border: 'none', opacity: (submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)) ? 0.6 : 1, cursor: (submitting || (!brd && !fsd && !srs && !frd && images.length === 0 && !figmaUrl && !githubUrl && !projectUrl)) ? 'not-allowed' : 'pointer', boxShadow: '0 4px 10px rgba(0,0,0,0.05)' }}
+                  >
+                    {submitting ? 'Analyzing & Generating...' : 'Analyze Documents ➔'}
+                  </button>
                 </div>
 
                 {job?.status === 'error' && <div className="error-banner" style={{ marginTop: 24 }}>{job.error}</div>}
@@ -1348,19 +1368,19 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   className={`tab-btn-monochrome tab-features ${activeTab === 'features' ? 'active' : ''}`}
                   onClick={() => setActiveTab('features')}
                 >
-                  📋 Features <span className="tab-count-monochrome">{featuresCount}</span>
+                  <i className="fa-solid fa-list-check"></i> Features <span className="tab-count-monochrome">{featuresCount}</span>
                 </button>
                 <button
                   className={`tab-btn-monochrome tab-flows ${activeTab === 'flows' ? 'active' : ''}`}
                   onClick={() => setActiveTab('flows')}
                 >
-                  🔄 User Flows <span className="tab-count-monochrome">{flowsCount}</span>
+                  <i className="fa-solid fa-diagram-project"></i> User Flows <span className="tab-count-monochrome">{flowsCount}</span>
                 </button>
                 <button
                   className={`tab-btn-monochrome tab-issues ${activeTab === 'issues' ? 'active' : ''}`}
                   onClick={() => setActiveTab('issues')}
                 >
-                  ⚠ Issues & Gaps <span className="tab-count-monochrome">{totalIssues}</span>
+                  <i className="fa-solid fa-triangle-exclamation"></i> Issues & Gaps <span className="tab-count-monochrome">{totalIssues}</span>
                 </button>
               </div>
 
@@ -1370,17 +1390,25 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     {featuresCount === 0 ? (
                       <div className="empty-state-monochrome">No features identified.</div>
                     ) : (
-                      <div className="features-grid-monochrome">
-                        {featuresList.map((f, i) => (
-                          <div key={i} className="feature-card-monochrome">
-                            <div className="feature-card-header-monochrome">
-                              <span className={`source-badge-monochrome ${(f.source || '').toLowerCase()}`}>{f.source || 'Website'}</span>
-                              <h4>{f.name}</h4>
+                      <>
+                        <div className="features-grid-monochrome">
+                          {featuresList.slice((featuresPage - 1) * itemsPerPage, featuresPage * itemsPerPage).map((f, i) => (
+                            <div key={i} className="feature-card-monochrome">
+                              <div className="feature-card-content-monochrome">
+                                <div className="feature-card-header-monochrome">
+                                  <span className={`source-badge-monochrome ${(f.source || '').toLowerCase()}`}>{f.source || 'Website'}</span>
+                                  <h4>{f.name}</h4>
+                                </div>
+                                <p>{f.description}</p>
+                              </div>
+                              <div className="feature-card-arrow-monochrome">
+                                <i className="fa-solid fa-check"></i>
+                              </div>
                             </div>
-                            <p>{f.description}</p>
-                          </div>
-                        ))}
-                      </div>
+                          ))}
+                        </div>
+                        {renderPagination(featuresPage, featuresList.length, setFeaturesPage)}
+                      </>
                     )}
                   </div>
                 )}
@@ -1390,42 +1418,84 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     {flowsCount === 0 ? (
                       <div className="empty-state-monochrome">No user flows identified.</div>
                     ) : (
-                      <div className="flows-list-monochrome">
-                        {flowsList.map((f, i) => {
-                          // Generate mermaid diagram string from steps
-                          let allSteps = []
-                          f.steps?.forEach(step => {
-                            if (step.includes('->')) {
-                              allSteps.push(...step.split('->').map(s => s.trim()))
-                            } else if (step.includes('→')) {
-                              allSteps.push(...step.split('→').map(s => s.trim()))
-                            } else {
-                              allSteps.push(step.trim())
-                            }
-                          })
+                      <>
+                        <div className="flows-list-monochrome">
+                          {flowsList.slice((flowsPage - 1) * 3, flowsPage * 3).map((f, i) => {
+                            // Generate mermaid diagram string from steps
+                            let allSteps = []
+                            f.steps?.forEach(step => {
+                              if (step.includes('->')) {
+                                allSteps.push(...step.split('->').map(s => s.trim()))
+                              } else if (step.includes('→')) {
+                                allSteps.push(...step.split('→').map(s => s.trim()))
+                              } else {
+                                allSteps.push(step.trim())
+                              }
+                            })
 
-                          let chart = 'graph LR\n'
-                          allSteps.forEach((step, idx) => {
-                            const cleanStep = step.replace(/"/g, '\\"')
-                            chart += `  step${idx}["${cleanStep}"]\n`
-                            if (idx < allSteps.length - 1) {
-                              chart += `  step${idx} --> step${idx + 1}\n`
-                            }
-                          })
+                            let chart = '%%{init: {"flowchart": {"nodeSpacing": 10, "rankSpacing": 20}, "themeVariables": {"fontSize": "11px"}}}%%\ngraph TD\n'
+                            
+                            // Define classDefs for colors like the 1st image
+                            chart += `  classDef startEnd fill:#fef08a,stroke:#d97706,stroke-width:1px,color:#000;\n`
+                            chart += `  classDef process fill:#e5e7eb,stroke:#9ca3af,stroke-width:1px,color:#000;\n`
+                            chart += `  classDef io fill:#bfdbfe,stroke:#3b82f6,stroke-width:1px,color:#000;\n`
+                            chart += `  classDef decision fill:#fecdd3,stroke:#e11d48,stroke-width:1px,color:#000;\n`
 
-                          return (
-                            <div key={i} className="flow-card-monochrome">
-                              <div className="flow-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                <h5 style={{ margin: 0 }}>{f.name}</h5>
-                                <button className="personalize-btn-monochrome" onClick={() => setViewFlowChart(chart)} style={{ padding: '4px 12px', fontSize: '12px', margin: 0, height: 'auto' }}>🔍 View Graph</button>
+                            allSteps.forEach((step, idx) => {
+                              const cleanStep = step.replace(/"/g, '\\"')
+                              const lower = cleanStep.toLowerCase()
+                              
+                              let shapeLeft = '['
+                              let shapeRight = ']'
+                              let className = 'process'
+                              
+                              if (idx === 0 || idx === allSteps.length - 1 || lower.includes('start') || lower.includes('end')) {
+                                shapeLeft = '(['
+                                shapeRight = '])'
+                                className = 'startEnd'
+                              } else if (lower.includes('if ') || lower.includes('?') || lower.includes('check ') || lower.includes('validate') || lower.includes('verify') || lower.includes('condition')) {
+                                shapeLeft = '{'
+                                shapeRight = '}'
+                                className = 'decision'
+                              } else if (lower.includes('enter') || lower.includes('input') || lower.includes('receive') || lower.includes('send') || lower.includes('show') || lower.includes('display')) {
+                                shapeLeft = '[/'
+                                shapeRight = '/]'
+                                className = 'io'
+                              }
+
+                              chart += `  step${idx}${shapeLeft}"${cleanStep}"${shapeRight}:::${className}\n`
+                              
+                              if (idx < allSteps.length - 1) {
+                                // Add basic yes/no edge logic if step seems like a decision
+                                let edge = '-->'
+                                if (className === 'decision') {
+                                   if (allSteps[idx+1].toLowerCase().includes('yes') || allSteps[idx+1].toLowerCase().includes('valid')) {
+                                      edge = '-->|Yes|'
+                                   } else if (allSteps[idx+1].toLowerCase().includes('no ') || allSteps[idx+1].toLowerCase().includes('invalid')) {
+                                      edge = '-->|No|'
+                                   } else {
+                                      edge = '-->|Yes/Next|'
+                                   }
+                                }
+                                chart += `  step${idx} ${edge} step${idx + 1}\n`
+                              }
+                            })
+
+                            return (
+                              <div key={i} className="flow-card-monochrome">
+                                <div className="flow-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
+                                  <h5 style={{ margin: 0 }}>{f.name}</h5>
+                                  <button className="personalize-btn-monochrome" onClick={() => setViewFlowChart(chart)} style={{ padding: '4px 12px', fontSize: '12px', margin: 0, height: 'auto' }}>🔍 View Graph</button>
+                                </div>
+                                <div className="flow-steps-visual-monochrome" style={{ background: '#ffffff', padding: '24px 16px', overflowX: 'auto', display: 'flex', justifyContent: 'flex-start' }}>
+                                  <Mermaid chart={chart} />
+                                </div>
                               </div>
-                              <div className="flow-steps-visual-monochrome" style={{ background: '#ffffff', padding: '24px 16px', overflowX: 'auto', display: 'flex', justifyContent: 'flex-start' }}>
-                                <Mermaid chart={chart} />
-                              </div>
-                            </div>
-                          )
-                        })}
-                      </div>
+                            )
+                          })}
+                        </div>
+                        {renderPagination(flowsPage, flowsList.length, setFlowsPage, 3)}
+                      </>
                     )}
                   </div>
                 )}
@@ -1439,35 +1509,51 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       </div>
                     ) : (
                       <div className="issues-list-monochrome">
-                        {inconsistenciesList.length > 0 && (
-                          <div className="issues-section-monochrome">
-                            <h6>Document Inconsistencies</h6>
-                            {inconsistenciesList.map((iss, i) => (
-                              <div key={i} className={`issue-card-monochrome ${(iss.severity || '').toLowerCase()}`}>
-                                <div className="issue-card-header-monochrome">
-                                  <span className={`secondary-badge-monochrome ${(iss.severity || '').toLowerCase()}`}>{iss.severity || 'Normal'}</span>
-                                  <h5>{iss.issue}</h5>
-                                </div>
-                                <p>{iss.detail}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
-
-                        {gapsList.length > 0 && (
-                          <div className="issues-section-monochrome" style={{ marginTop: 24 }}>
-                            <h6>Identified Gaps</h6>
-                            {gapsList.map((g, i) => (
-                              <div key={i} className="issue-card-monochrome gap">
-                                <div className="issue-card-header-monochrome">
-                                  <span className="severity-badge-monochrome gap">GAP</span>
-                                  <h5>{g.item}</h5>
-                                </div>
-                                <p>{g.detail}</p>
-                              </div>
-                            ))}
-                          </div>
-                        )}
+                        {(() => {
+                          const allIssues = [
+                            ...inconsistenciesList.map(iss => ({ ...iss, _type: 'inconsistency' })),
+                            ...gapsList.map(gap => ({ ...gap, _type: 'gap' }))
+                          ];
+                          const paginatedIssues = allIssues.slice((issuesPage - 1) * itemsPerPage, issuesPage * itemsPerPage);
+                          return (
+                            <>
+                              {paginatedIssues.map((iss, i) => {
+                                if (iss._type === 'inconsistency') {
+                                  return (
+                                    <div key={i} className={`issue-card-monochrome ${iss.severity ? iss.severity.toLowerCase() : ''}`}>
+                                      <div className="issue-card-content-monochrome">
+                                        <div className="issue-card-header-monochrome">
+                                          <span className={`severity-badge-monochrome ${iss.severity ? iss.severity.toLowerCase() : ''}`}>{iss.severity || 'Normal'}</span>
+                                          <h5>{iss.issue}</h5>
+                                        </div>
+                                        <p>{iss.detail}</p>
+                                      </div>
+                                      <div className="issue-card-icon-monochrome">
+                                        <i className="fa-solid fa-exclamation"></i>
+                                      </div>
+                                    </div>
+                                  );
+                                } else {
+                                  return (
+                                    <div key={i} className={`issue-card-monochrome gap`}>
+                                      <div className="issue-card-content-monochrome">
+                                        <div className="issue-card-header-monochrome">
+                                          <span className={`severity-badge-monochrome gap`}>GAP</span>
+                                          <h5>{iss.item}</h5>
+                                        </div>
+                                        <p>{iss.detail}</p>
+                                      </div>
+                                      <div className="issue-card-icon-monochrome">
+                                        <i className="fa-solid fa-exclamation"></i>
+                                      </div>
+                                    </div>
+                                  );
+                                }
+                              })}
+                              {renderPagination(issuesPage, allIssues.length, setIssuesPage)}
+                            </>
+                          )
+                        })()}
                       </div>
                     )}
                   </div>
@@ -1503,7 +1589,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   <div key={p.id} className="history-card" style={{ padding: '20px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} onClick={() => loadProject(p.id)} onMouseOver={e => e.currentTarget.style.borderColor = '#3b82f6'} onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
                     <div>
                       <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>{p.name || 'Unnamed Project'}</h3>
-                      <p style={{ margin: '0', fontSize: '14px', color: '#64748b' }}>
+                      <p style={{ margin: '0', fontSize: '14px', color: '#3b82f6' }}>
                         Created: {new Date(p.created_at * 1000).toLocaleString()} | {p.total_cases} Test Cases
                       </p>
                     </div>
@@ -1794,7 +1880,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 onBlur={(e) => e.target.style.borderColor = '#cbd5e1'}
               />
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px', marginTop: '20px' }}>
-                <button onClick={() => setShowPersonalizeModal(false)} style={{ margin: 0, padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155' }} onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b' }}>
+                <button onClick={() => setShowPersonalizeModal(false)} style={{ margin: 0, padding: '8px 16px', background: 'transparent', color: '#3b82f6', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }} onMouseOver={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155' }} onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b' }}>
                   Cancel
                 </button>
                 <button
@@ -1988,7 +2074,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               <div style={{ display: 'flex', justifyContent: 'flex-end', gap: '12px' }}>
                 <button
                   onClick={() => setShowCreateProjectModal(false)}
-                  style={{ padding: '8px 16px', background: 'transparent', color: '#64748b', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
+                  style={{ padding: '8px 16px', background: 'transparent', color: '#3b82f6', border: '1px solid #cbd5e1', borderRadius: '6px', fontSize: '14px', fontWeight: '500', cursor: 'pointer', transition: 'all 0.2s ease' }}
                   onMouseOver={(e) => { e.target.style.background = '#f1f5f9'; e.target.style.color = '#334155' }}
                   onMouseOut={(e) => { e.target.style.background = 'transparent'; e.target.style.color = '#64748b' }}
                 >
