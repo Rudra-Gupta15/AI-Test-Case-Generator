@@ -54,31 +54,46 @@ def decode_token(token: str) -> dict:
 
 # ── FastAPI Dependencies ──────────────────────────────────────────────────────
 
+async def _get_mock_user_with_retry(db):
+    import asyncio
+    for attempt in range(3):
+        try:
+            user_dict = await db.users.find_one()
+            return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
+        except Exception:
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+            else:
+                return User(id="mock", login_id="mock", role="admin")
+
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),
     db = Depends(get_db),
 ) -> User:
     """Return the authenticated User or a default bypass user if no token is provided."""
     if credentials is None:
-        user_dict = await db.users.find_one()
-        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
+        return await _get_mock_user_with_retry(db)
 
     try:
         payload = decode_token(credentials.credentials)
-        user_id: str = payload.get("sub")
+        user_id = payload.get("sub")
         if user_id is None:
-            user_dict = await db.users.find_one()
-            return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
-    except JWTError:
-        user_dict = await db.users.find_one()
-        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
+            return await _get_mock_user_with_retry(db)
+    except Exception:  # Catch JWTError and ValueError
+        return await _get_mock_user_with_retry(db)
 
-    user_dict = await db.users.find_one({"id": user_id})
-    if user_dict is None or not user_dict.get("is_active"):
-        user_dict = await db.users.find_one()
-        return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
-
-    return User(**user_dict)
+    import asyncio
+    for attempt in range(3):
+        try:
+            user_dict = await db.users.find_one({"id": user_id})
+            if user_dict is None or not user_dict.get("is_active"):
+                return await _get_mock_user_with_retry(db)
+            return User(**user_dict)
+        except Exception:
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+            else:
+                return await _get_mock_user_with_retry(db)
 
 
 def require_admin(current_user: User = Depends(get_current_user)) -> User:

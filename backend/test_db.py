@@ -1,10 +1,19 @@
 import asyncio
-from app.database import database
+from motor.motor_asyncio import AsyncIOMotorClient
+import os
+import certifi
+from dotenv import load_dotenv
 
-async def test():
-    p = await database.projects.find().to_list(100)
-    print("TOTAL PROJECTS:", len(p))
-    for x in p:
-        print(x.get('id'), x.get('name'), x.get('created_at'))
+load_dotenv()
 
-asyncio.run(test())
+async def main():
+    try:
+        MONGODB_URL = os.getenv("MONGODB_URL", "mongodb://localhost:27017")
+        client = AsyncIOMotorClient(MONGODB_URL, tlsCAFile=certifi.where(), tlsAllowInvalidCertificates=True)
+        user = await client["qa_intelligence"].users.find_one()
+        print("Success:", user)
+    except Exception as e:
+        print("Error:", e)
+
+if __name__ == "__main__":
+    asyncio.run(main())

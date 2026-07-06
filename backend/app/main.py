@@ -507,37 +507,45 @@ async def list_projects(
     db = Depends(get_db),
     current_user: User = Depends(get_current_user),
 ):
-    if current_user.role == "admin":
-        cursor = db.projects.find().sort("created_at", -1)
-    else:
-        cursor = db.projects.find({
-            "$or": [
-                {"owner_id": current_user.id},
-                {"owner_id": None}
-            ]
-        }).sort("created_at", -1)
-        
-    projects = await cursor.to_list(length=1000)
+    import asyncio
+    for attempt in range(3):
+        try:
+            if current_user.role == "admin":
+                cursor = db.projects.find().sort("created_at", -1)
+            else:
+                cursor = db.projects.find({
+                    "$or": [
+                        {"owner_id": current_user.id},
+                        {"owner_id": None}
+                    ]
+                }).sort("created_at", -1)
+                
+            projects = await cursor.to_list(length=1000)
 
-    result = []
-    for p in projects:
-        has_tree = await db.tree_nodes.find_one({"project_id": p["id"]}) is not None
-        test_report = p.get("test_report")
-        result.append({
-            "id": p["id"],
-            "name": p["name"],
-            "product_type": p.get("product_type"),
-            "description": p.get("description", ""),
-            "domain": p.get("domain", ""),
-            "testing_type": p.get("testing_type", ""),
-            "methodology": p.get("methodology", ""),
-            "created_at": p.get("created_at"),
-            "notepad": p.get("notepad", ""),
-            "total_cases": len(test_report.get("test_cases", [])) if test_report else 0,
-            "has_tree": has_tree,
-            "is_legacy": not has_tree and bool(test_report),
-        })
-    return result
+            result = []
+            for p in projects:
+                has_tree = await db.tree_nodes.find_one({"project_id": p["id"]}) is not None
+                test_report = p.get("test_report")
+                result.append({
+                    "id": p["id"],
+                    "name": p["name"],
+                    "product_type": p.get("product_type"),
+                    "description": p.get("description", ""),
+                    "domain": p.get("domain", ""),
+                    "testing_type": p.get("testing_type", ""),
+                    "methodology": p.get("methodology", ""),
+                    "created_at": p.get("created_at"),
+                    "notepad": p.get("notepad", ""),
+                    "total_cases": len(test_report.get("test_cases", [])) if test_report else 0,
+                    "has_tree": has_tree,
+                    "is_legacy": not has_tree and bool(test_report),
+                })
+            return result
+        except Exception as e:
+            if attempt < 2:
+                await asyncio.sleep(0.5)
+                continue
+            raise HTTPException(status_code=503, detail=f"Database temporarily unavailable: {str(e)}")
 
 
 @app.get("/api/projects/{project_id}")

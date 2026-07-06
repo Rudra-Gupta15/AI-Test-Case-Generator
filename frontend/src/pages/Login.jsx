@@ -48,22 +48,14 @@ export default function Login() {
 
   return (
     <div className="login-page">
+      <div className="login-bg-ambient-1" />
+      <div className="login-bg-ambient-2" />
       <div className="login-bg-grid" />
       <div className="login-card">
         {/* Logo / brand area */}
         <div className="login-brand">
-          <div className="login-logo">
-            <svg width="36" height="36" viewBox="0 0 36 36" fill="none">
-              <rect width="36" height="36" rx="10" fill="url(#lg1)" />
-              <path d="M10 18h16M18 10v16" stroke="white" strokeWidth="2.5" strokeLinecap="round" />
-              <path d="M13 13l10 10M23 13L13 23" stroke="rgba(255,255,255,0.4)" strokeWidth="1.5" strokeLinecap="round" />
-              <defs>
-                <linearGradient id="lg1" x1="0" y1="0" x2="36" y2="36" gradientUnits="userSpaceOnUse">
-                  <stop stopColor="#6366f1" />
-                  <stop offset="1" stopColor="#3b82f6" />
-                </linearGradient>
-              </defs>
-            </svg>
+          <div className="login-logo-container">
+            <img src="/Logo.png" alt="QA Intelligence Logo" className="login-logo-img" />
           </div>
           <h1 className="login-title">QA Intelligence</h1>
           <p className="login-subtitle">Sign in to your workspace</p>
