@@ -199,6 +199,22 @@ export default function LegacyWorkspace() {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
+        
+        // Fetch files
+        try {
+          const filesResponse = await fetch(`/api/projects/${id}/files`)
+          if (filesResponse.ok) {
+            const files = await filesResponse.json()
+            if (files.brd) setBrd(files.brd)
+            if (files.fsd) setFsd(files.fsd)
+            if (files.srs) setSrs(files.srs)
+            if (files.frd) setFrd(files.frd)
+            if (files.images) setImages(files.images)
+          }
+        } catch (fileErr) {
+          console.error("Failed to load project files", fileErr)
+        }
+        
         setStep(1)
       } else {
         alert("Failed to load project")
@@ -381,7 +397,11 @@ export default function LegacyWorkspace() {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ job_id: job.id }),
+        body: JSON.stringify({ 
+          job_id: job.id,
+          understanding: job.understanding,
+          test_report: job.test_report
+        }),
       })
       if (response.ok) {
         alert("Project saved successfully!")

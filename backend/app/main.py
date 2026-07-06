@@ -347,6 +347,8 @@ class CreateProjectRequest(BaseModel):
 
 class SaveProjectRequest(BaseModel):
     job_id: str
+    understanding: Optional[dict] = None
+    test_report: Optional[dict] = None
 
 
 class CreateEmptyProjectRequest(BaseModel):
@@ -376,6 +378,7 @@ async def create_empty_project(
         owner_id=current_user.id if current_user else None,
     )
     p_dict = project.model_dump()
+    p_dict["parent_id"] = project.id
     await db.projects.insert_one(p_dict)
 
     JOBS[project.id] = {
@@ -405,6 +408,7 @@ async def create_project_with_tree(
         owner_id=current_user.id,
     )
     p_dict = project.model_dump()
+    p_dict["parent_id"] = project.id
     await db.projects.insert_one(p_dict)
 
     id_map = {}
@@ -452,10 +456,12 @@ async def create_project(
         owner_id=current_user.id,
     )
     p_dict = project.model_dump()
+    p_dict["parent_id"] = project.id
     await db.projects.insert_one(p_dict)
     
     return {
         "id": project.id,
+        "parent_id": p_dict["parent_id"],
         "name": project.name,
         "description": project.description,
         "domain": project.domain,
@@ -465,25 +471,100 @@ async def create_project(
     }
 
 
+@app.post("/api/projects/{project_id}/duplicate")
+async def duplicate_project(
+    project_id: str,
+    db = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    parent_id = project.get("parent_id", project_id)
+    version_count = await db.projects.count_documents({"parent_id": parent_id})
+    root_has_parent_id = await db.projects.count_documents({"id": parent_id, "parent_id": parent_id})
+    
+    if root_has_parent_id == 0:
+        # The root project was created before the parent_id feature, so it isn't counted in version_count
+        version_count += 1
+        
+    new_version_num = version_count + 1
+    
+    import re
+    base_name = re.sub(r' - Version \d+$', '', project.get("name", "Project"))
+    new_name = f"{base_name} - Version {new_version_num}"
+    
+    new_id = str(uuid.uuid4())
+    
+    # Copy files
+    old_dir = os.path.join(UPLOADS_DIR, project_id)
+    new_dir = os.path.join(UPLOADS_DIR, new_id)
+    if os.path.exists(old_dir):
+        shutil.copytree(old_dir, new_dir)
+        
+    # Duplicate tree nodes
+    nodes = await db.tree_nodes.find({"project_id": project_id}).to_list(None)
+    node_id_mapping = {}
+    
+    for n in nodes:
+        old_node_id = n["id"]
+        new_node_id = str(uuid.uuid4())
+        node_id_mapping[old_node_id] = new_node_id
+        
+    new_nodes = []
+    for n in nodes:
+        n_copy = dict(n)
+        del n_copy["_id"]
+        n_copy["id"] = node_id_mapping[n["id"]]
+        n_copy["project_id"] = new_id
+        if n_copy.get("parent_id") and n_copy["parent_id"] in node_id_mapping:
+            n_copy["parent_id"] = node_id_mapping[n_copy["parent_id"]]
+        new_nodes.append(n_copy)
+        
+    if new_nodes:
+        await db.tree_nodes.insert_many(new_nodes)
+        
+    # Copy project record
+    p_copy = dict(project)
+    del p_copy["_id"]
+    p_copy["id"] = new_id
+    p_copy["parent_id"] = parent_id
+    p_copy["name"] = new_name
+    p_copy["created_at"] = time.time()
+    
+    await db.projects.insert_one(p_copy)
+    
+    # PyMongo mutates p_copy to add _id back in, so we must remove it before returning
+    if "_id" in p_copy:
+        del p_copy["_id"]
+        
+    return p_copy
+
+
 @app.post("/api/projects/save")
 async def save_project(req: SaveProjectRequest, db = Depends(get_db)):
     job = get_job(req.job_id)
-    if not job:
-        raise HTTPException(400, "Job not found")
 
-    product_type = (
-        job.get("understanding", {}).get("product_type", "Unnamed Project")
-        if job.get("understanding")
-        else "Unnamed Project"
-    )
+    understanding = req.understanding
+    if not understanding and job:
+        understanding = job.get("understanding")
+        
+    test_report = req.test_report
+    if not test_report and job:
+        test_report = job.get("test_report")
+
+    product_type = "Unnamed Project"
+    if understanding and isinstance(understanding, dict):
+        product_type = understanding.get("product_type", "Unnamed Project")
 
     existing_project = await db.projects.find_one({"id": req.job_id})
     if existing_project:
         await db.projects.update_one(
             {"id": req.job_id},
             {"$set": {
-                "understanding": job.get("understanding"),
-                "test_report": job.get("test_report")
+                "understanding": understanding,
+                "test_report": test_report
             }}
         )
         project_id = req.job_id
@@ -492,12 +573,16 @@ async def save_project(req: SaveProjectRequest, db = Depends(get_db)):
             id=req.job_id,
             name=product_type,
             product_type=product_type,
-            understanding=job.get("understanding"),
-            test_report=job.get("test_report"),
+            understanding=understanding,
+            test_report=test_report,
         )
         p_dict = project.model_dump()
         await db.projects.insert_one(p_dict)
         project_id = project.id
+
+    if job:
+        from app.jobs import update_job
+        update_job(req.job_id, understanding=understanding, test_report=test_report)
 
     return {"id": project_id, "message": "Project saved successfully"}
 
@@ -528,6 +613,7 @@ async def list_projects(
                 test_report = p.get("test_report")
                 result.append({
                     "id": p["id"],
+                    "parent_id": p.get("parent_id"),
                     "name": p["name"],
                     "product_type": p.get("product_type"),
                     "description": p.get("description", ""),
@@ -547,6 +633,93 @@ async def list_projects(
                 continue
             raise HTTPException(status_code=503, detail=f"Database temporarily unavailable: {str(e)}")
 
+@app.get("/api/projects/{project_id}/stats")
+async def get_project_stats(
+    project_id: str,
+    db = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    uploaded_files_count = 0
+    job_dir = os.path.join(UPLOADS_DIR, project_id)
+    if os.path.exists(job_dir):
+        uploaded_files_count = len([f for f in os.listdir(job_dir) if os.path.isfile(os.path.join(job_dir, f))])
+
+    tree_nodes = await db.tree_nodes.find({"project_id": project_id}).to_list(length=10000)
+
+    analysis_count = sum(1 for n in tree_nodes if n.get("node_type") in ["Feature", "Module", "TestSuite"])
+    test_cases_count = sum(1 for n in tree_nodes if n.get("node_type") == "TestCase")
+    
+    # Support both old status mapping and standard pass/fail
+    executed_count = 0
+    for n in tree_nodes:
+        if n.get("node_type") == "TestCase":
+            status = n.get("data", {}).get("status", "")
+            if status.lower() in ["pass", "fail", "blocked", "passed", "failed"]:
+                executed_count += 1
+
+    # Fallback to legacy project data if tree_nodes is empty
+    if not tree_nodes:
+        if project.get("understanding"):
+            analysis_count = len(project.get("understanding", {}).get("features", []))
+        if project.get("test_report"):
+            test_cases = project.get("test_report", {}).get("test_cases", [])
+            test_cases_count = len(test_cases)
+            executed_count = sum(1 for tc in test_cases if tc.get("status", "").lower() in ["pass", "fail", "blocked", "passed", "failed"])
+
+    return {
+        "file_uploaded": uploaded_files_count,
+        "analysis": analysis_count,
+        "tc_generated": test_cases_count,
+        "executed": executed_count
+    }
+
+
+from fastapi.responses import FileResponse
+
+@app.get("/api/projects/{project_id}/files")
+async def get_project_files(
+    project_id: str,
+    db = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    job_dir = os.path.join(UPLOADS_DIR, project_id)
+    files = {}
+    if os.path.exists(job_dir):
+        for f in os.listdir(job_dir):
+            if os.path.isfile(os.path.join(job_dir, f)):
+                if f.startswith("brd_"): files["brd"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("fsd_"): files["fsd"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("srs_"): files["srs"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("frd_"): files["frd"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("img_"): 
+                    if "images" not in files: files["images"] = []
+                    files["images"].append({"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"})
+    return files
+
+@app.get("/api/projects/{project_id}/files/{filename}")
+async def get_project_file(
+    project_id: str,
+    filename: str,
+    db = Depends(get_db),
+    current_user: User = Depends(get_current_user),
+):
+    project = await db.projects.find_one({"id": project_id})
+    if not project:
+        raise HTTPException(status_code=404, detail="Project not found")
+
+    file_path = os.path.join(UPLOADS_DIR, project_id, filename)
+    if not os.path.exists(file_path):
+        raise HTTPException(status_code=404, detail="File not found")
+        
+    return FileResponse(file_path)
 
 @app.get("/api/projects/{project_id}")
 async def get_project(

@@ -22,12 +22,12 @@ function formatDate(ts) {
   return d.toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric' })
 }
 
-export default function ProjectCard({ project, onClick, onDelete, onHistoryClick }) {
+export default function ProjectCard({ project, onClick, onDelete, onHistoryClick, isSelected }) {
   const domainIcon = DOMAIN_ICONS[project.domain] || '📁'
   const typeColor = TYPE_COLORS[project.testing_type] || '#64748b'
 
   return (
-    <div className="proj-card" onClick={onClick} role="button" tabIndex={0}
+    <div className={`proj-card ${isSelected ? 'selected' : ''}`} onClick={onClick} role="button" tabIndex={0}
       onKeyDown={e => e.key === 'Enter' && onClick()}
     >
       <div className="proj-card-tab"></div>
@@ -91,4 +91,5 @@ ProjectCard.propTypes = {
   }).isRequired,
   onClick: PropTypes.func.isRequired,
   onDelete: PropTypes.func.isRequired,
+  isSelected: PropTypes.bool,
 }
