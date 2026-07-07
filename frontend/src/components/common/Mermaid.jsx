@@ -79,7 +79,7 @@ export default function Mermaid({ chart }) {
       className="mermaid-chart-container"
       dangerouslySetInnerHTML={{ __html: svg }}
       ref={containerRef}
-      style={{ display: 'flex', justifyContent: 'flex-start', width: '100%' }}
+      style={{ display: 'flex', justifyContent: 'center', width: '100%' }}
     />
   )
 }

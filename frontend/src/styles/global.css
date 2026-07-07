@@ -1,6 +1,4 @@
-@tailwind base;
-@tailwind components;
-@tailwind utilities;
+@import "tailwindcss";
 
 :root {
   --bg-dark: #000000;
@@ -56,6 +54,28 @@ body {
   overflow-y: auto;
   position: relative;
   flex-shrink: 0;
+}
+
+/* Custom Scrollbar for Sidebar and its children */
+.app-sidebar::-webkit-scrollbar,
+.app-sidebar *::-webkit-scrollbar {
+  width: 6px;
+}
+
+.app-sidebar::-webkit-scrollbar-track,
+.app-sidebar *::-webkit-scrollbar-track {
+  background: transparent;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb,
+.app-sidebar *::-webkit-scrollbar-thumb {
+  background: #3f3f46;
+  border-radius: 4px;
+}
+
+.app-sidebar::-webkit-scrollbar-thumb:hover,
+.app-sidebar *::-webkit-scrollbar-thumb:hover {
+  background: #52525b;
 }
 
 .brand-header {
@@ -442,7 +462,7 @@ body {
   height: 100vh;
   display: flex;
   flex-direction: column;
-  overflow-y: auto; /* Make right side scrollable */
+  overflow-y: hidden; /* Changed from auto to hidden so navbar stays fixed */
 }
 
 /* Full-width Rectangular Navbar */
@@ -457,7 +477,7 @@ body {
 
 .app-main-content {
   flex: 1;
-  overflow-y: auto;
+  overflow-y: hidden;
   background: var(--bg-light);
   padding: 0; /* Changed from 40px 60px to 0 for full-width navbar */
   position: relative;
@@ -573,7 +593,9 @@ body {
 
 .main-step-container {
   width: 100%;
-  padding: 16px 16px 0 16px;
+  padding: 32px 60px 48px 60px; /* Replaced app-main-content padding here */
+  flex: 1;
+  overflow-y: auto;
   box-sizing: border-box;
 }
 

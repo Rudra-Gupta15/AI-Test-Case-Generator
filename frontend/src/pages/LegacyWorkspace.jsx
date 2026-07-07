@@ -41,6 +41,8 @@ export default function LegacyWorkspace() {
   const [showPersonalizeModal, setShowPersonalizeModal] = useState(false)
   const [showCreateProjectModal, setShowCreateProjectModal] = useState(false)
   const [createProjectName, setCreateProjectName] = useState('')
+  const [executionPopup, setExecutionPopup] = useState(null)
+  const [historyPage, setHistoryPage] = useState(1)
   const [elapsedTime, setElapsedTime] = useState(0)
   const pollRef = useRef(null)
 
@@ -135,7 +137,13 @@ export default function LegacyWorkspace() {
   const [checkedSteps, setCheckedSteps] = useState({})
   const [caseStatuses, setCaseStatuses] = useState({})
   const [viewFlowChart, setViewFlowChart] = useState(null)
+  const [graphZoom, setGraphZoom] = useState(1)
   const [selectedTestCases, setSelectedTestCases] = useState({})
+
+  const [isEditingTreeRoot, setIsEditingTreeRoot] = useState(false)
+  const [editTreeRootName, setEditTreeRootName] = useState("")
+  const [isTreeEditMode, setIsTreeEditMode] = useState(false)
+
 
   // History state
   const [projects, setProjects] = useState([])
@@ -369,7 +377,7 @@ export default function LegacyWorkspace() {
   const executeSelectedTestCases = () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
-      alert("Please select at least one test case to execute.");
+      setExecutionPopup({ message: "Please select at least one test case to execute.", error: true });
       return;
     }
 
@@ -397,7 +405,33 @@ export default function LegacyWorkspace() {
     });
 
     setSelectedTestCases({});
-    alert(`Successfully executed ${selectedIds.length} test cases!`);
+    setExecutionPopup({ message: `Successfully executed ${selectedIds.length} test case(s)!` });
+  };
+
+  const executeSingleTestCase = (tcId) => {
+    setJob((prev) => {
+      if (!prev?.test_report?.test_cases) return prev;
+      const newCases = prev.test_report.test_cases.map(tc => {
+        if (tc.id === tcId) {
+          const passed = Math.random() > 0.15;
+          return {
+            ...tc,
+            status: passed ? 'Pass' : 'Fail',
+            actual_result: passed ? 'Executed successfully as expected.' : 'Execution failed. Error encountered.',
+            executed_by: 'Automation Runner'
+          };
+        }
+        return tc;
+      });
+      return {
+        ...prev,
+        test_report: {
+          ...prev.test_report,
+          test_cases: newCases
+        }
+      }
+    });
+    setExecutionPopup({ message: `Successfully executed 1 test case!` });
   };
 
   const saveProject = async () => {
@@ -506,7 +540,7 @@ export default function LegacyWorkspace() {
         });
         setGenerating(false);
         setUserPrompt('');
-        alert('Execution completed successfully!');
+        setExecutionPopup({ message: 'Execution completed successfully!' });
       } else {
         // It's a generate action, so we poll for the job
         pollJob(data.job_id)
@@ -774,7 +808,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
     <div className={`app-window step-${step}`}>
       {/* ================= LEFT SIDEBAR (Dark Black Theme) ================= */}
       {step === 3 && !sidebarCollapsed && (
-        <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth }}>
+        <div className="app-sidebar" style={{ width: sidebarWidth, flexBasis: sidebarWidth, paddingTop: '16px' }}>
           {/* Resizer Handle */}
           <div
             onMouseDown={startResizing}
@@ -801,7 +835,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
           {/* Step-Specific Sidebar Content */}
 
-          <div className="sidebar-middle">
+          <div className="sidebar-middle" style={{ marginTop: step === 3 ? 0 : undefined }}>
             {step === 1 && (
               <div className="sidebar-hero-content">
                 <h1>Upload your specs.<br />Get a test plan.</h1>
@@ -896,9 +930,70 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
                   return (
                     <div className="test-explorer-tree">
-                      <div className="tree-root" onClick={() => setSelectedView({ type: 'all', id: null })} style={{ cursor: 'pointer' }}>
-                        <span className="tree-icon">📁</span>
-                        <span className="tree-label">{job.understanding?.product_type || "Test Project"}</span>
+                      <div style={{ display: 'flex', justifyContent: 'flex-end', marginBottom: '8px' }}>
+                        <button
+                          onClick={() => {
+                            setIsTreeEditMode(!isTreeEditMode);
+                            if (isTreeEditMode) setIsEditingTreeRoot(false);
+                          }}
+                          style={{
+                            background: isTreeEditMode ? '#10b981' : 'transparent',
+                            color: isTreeEditMode ? 'white' : '#94a3b8',
+                            border: isTreeEditMode ? 'none' : '1px solid #3f3f46',
+                            borderRadius: '4px',
+                            padding: '4px 8px',
+                            fontSize: '12px',
+                            cursor: 'pointer',
+                            display: 'flex',
+                            alignItems: 'center',
+                            gap: '4px'
+                          }}
+                        >
+                          <i className={`fa-solid ${isTreeEditMode ? 'fa-check' : 'fa-pen-to-square'}`}></i>
+                          {isTreeEditMode ? 'Done Editing' : 'Edit Mode'}
+                        </button>
+                      </div>
+                      <div className="tree-root" onClick={() => { if (!isTreeEditMode) setSelectedView({ type: 'all', id: null }) }} style={{ cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'space-between' }}>
+                        <div style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: 1, minWidth: 0 }}>
+                          <span className="tree-icon">📁</span>
+                          {isTreeEditMode && (
+                            <input
+                              type="checkbox"
+                              checked={isEditingTreeRoot}
+                              onChange={(e) => {
+                                e.stopPropagation();
+                                setIsEditingTreeRoot(e.target.checked);
+                                if (e.target.checked) setEditTreeRootName(job.understanding?.product_type || "Test Project");
+                              }}
+                              style={{ marginRight: '4px' }}
+                            />
+                          )}
+                          {isTreeEditMode && isEditingTreeRoot ? (
+                            <input
+                              type="text"
+                              value={editTreeRootName}
+                              onChange={(e) => setEditTreeRootName(e.target.value)}
+                              onClick={(e) => e.stopPropagation()}
+                              onBlur={() => {
+                                if (editTreeRootName.trim()) {
+                                  setJob(prev => ({ ...prev, understanding: { ...prev.understanding, product_type: editTreeRootName } }))
+                                }
+                              }}
+                              onKeyDown={(e) => {
+                                if (e.key === 'Enter') {
+                                  e.stopPropagation()
+                                  if (editTreeRootName.trim()) {
+                                    setJob(prev => ({ ...prev, understanding: { ...prev.understanding, product_type: editTreeRootName } }))
+                                  }
+                                }
+                              }}
+                              autoFocus
+                              style={{ flex: 1, background: '#1e293b', border: '1px solid #3b82f6', borderRadius: '4px', color: 'white', padding: '2px 6px', fontSize: '13px', outline: 'none', minWidth: 0 }}
+                            />
+                          ) : (
+                            <span className="tree-label" style={{ flex: 1, whiteSpace: 'normal', wordBreak: 'break-word', overflow: 'hidden', textOverflow: 'ellipsis' }}>{job.understanding?.product_type || "Test Project"}</span>
+                          )}
+                        </div>
                       </div>
                       <div className="tree-children">
                         {Object.keys(treeData).map((sec, idx) => (
@@ -907,7 +1002,35 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             section={sec}
                             testCases={treeData[sec]}
                             selectedView={selectedView}
+                            isTreeEditMode={isTreeEditMode}
                             onSelect={(type, id) => setSelectedView({ type, id })}
+                            onRenameSection={(oldName, newName) => {
+                              setJob(prev => {
+                                if (!prev?.test_report?.test_cases) return prev;
+                                const newCases = prev.test_report.test_cases.map(tc => {
+                                  if ((tc.section || 'General') === oldName) {
+                                    return { ...tc, section: newName };
+                                  }
+                                  return tc;
+                                })
+                                return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } }
+                              })
+                              if (selectedView?.type === 'section' && selectedView?.id === oldName) {
+                                setSelectedView({ type: 'section', id: newName })
+                              }
+                            }}
+                            onRenameTestCase={(tcId, newName) => {
+                              setJob(prev => {
+                                if (!prev?.test_report?.test_cases) return prev;
+                                const newCases = prev.test_report.test_cases.map(tc => {
+                                  if (tc.id === tcId) {
+                                    return { ...tc, scenario: newName };
+                                  }
+                                  return tc;
+                                })
+                                return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } }
+                              })
+                            }}
                           />
                         ))}
                       </div>
@@ -990,50 +1113,33 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
       )}
 
       <div className={`app-main-content step-${step}`}>
-        {step === 3 && (
-          <button
-            onClick={() => setSidebarCollapsed(prev => !prev)}
-            style={{
-              position: 'absolute',
-              left: 0,
-              top: '40%',
-              zIndex: 999,
-              width: '32px',
-              minHeight: '130px',
-              background: '#18181b',
-              border: '1px solid #27272a',
-              borderLeft: 'none',
-              borderRadius: '0 8px 8px 0',
-              color: '#cbd5e1',
-              cursor: 'pointer',
-              display: 'flex',
-              flexDirection: 'column',
-              alignItems: 'center',
-              justifyContent: 'center',
-              gap: '10px',
-              fontSize: '10px',
-              fontWeight: '700',
-              textTransform: 'uppercase',
-              letterSpacing: '1px',
-              writingMode: 'vertical-lr',
-              boxShadow: '4px 0 12px rgba(0, 0, 0, 0.25)',
-              transition: 'all 0.2s',
-              padding: '12px 0',
-              userSelect: 'none',
-              lineHeight: '1.2'
-            }}
-            onMouseOver={e => { e.currentTarget.style.background = '#27272a'; e.currentTarget.style.color = '#ffffff'; }}
-            onMouseOut={e => { e.currentTarget.style.background = '#18181b'; e.currentTarget.style.color = '#cbd5e1'; }}
-            title={sidebarCollapsed ? "Show Folder Tree" : "Hide Folder Tree"}
-          >
-            <span style={{ fontSize: '11px', marginBottom: '2px', writingMode: 'horizontal-tb' }}>{sidebarCollapsed ? '▶' : '◀'}</span>
-            {sidebarCollapsed ? 'Explorer' : 'Collapse'}
-          </button>
-        )}
+
         {/* Floating Capsule Navbar */}
         <div className="floating-navbar-container">
           <div className="floating-navbar" style={{ padding: '16px 24px' }}>
-            <div className="nav-brand" style={{ gap: '10px', alignItems: 'center' }}>
+            <div className="nav-brand" style={{ gap: '10px', alignItems: 'center', display: 'flex' }}>
+              {step === 3 && (
+                <button
+                  onClick={() => setSidebarCollapsed(prev => !prev)}
+                  title={sidebarCollapsed ? "Show Folder Tree" : "Hide Folder Tree"}
+                  style={{
+                    background: 'transparent',
+                    border: 'none',
+                    color: '#94a3b8',
+                    cursor: 'pointer',
+                    display: 'flex',
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                    padding: '8px',
+                    borderRadius: '50%',
+                    transition: 'all 0.2s ease',
+                  }}
+                  onMouseOver={e => { e.currentTarget.style.background = 'rgba(255,255,255,0.1)'; e.currentTarget.style.color = '#ffffff'; }}
+                  onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#94a3b8'; }}
+                >
+                  <i className={`fa-solid ${sidebarCollapsed ? 'fa-circle-chevron-right' : 'fa-circle-chevron-left'}`} style={{ fontSize: '22px' }}></i>
+                </button>
+              )}
               <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
                 <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
               </div>
@@ -1172,7 +1278,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1194,7 +1300,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1216,7 +1322,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1238,7 +1344,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
                               </>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1262,7 +1368,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'stretch' }}>
                         <div className="sleek-list-item" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: images.length > 0 ? '16px' : '0', padding: '16px 20px' }}>
                           <span className="sleek-item-label" style={{ fontWeight: '600' }}>Reference Mockups (Images)</span>
-                          <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6' }}>
+                          <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
                             <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>{images.length > 0 ? 'Add More' : 'Upload Images'}</span>
                             <input type="file" multiple accept="image/*" onChange={(e) => setImages([...images, ...Array.from(e.target.files)])} className="hidden-file-input" />
                           </label>
@@ -1434,7 +1540,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             })
 
                             let chart = '%%{init: {"flowchart": {"nodeSpacing": 10, "rankSpacing": 20}, "themeVariables": {"fontSize": "11px"}}}%%\ngraph TD\n'
-                            
+
                             // Define classDefs for colors like the 1st image
                             chart += `  classDef startEnd fill:#fef08a,stroke:#d97706,stroke-width:1px,color:#000;\n`
                             chart += `  classDef process fill:#e5e7eb,stroke:#9ca3af,stroke-width:1px,color:#000;\n`
@@ -1444,11 +1550,11 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             allSteps.forEach((step, idx) => {
                               const cleanStep = step.replace(/"/g, '\\"')
                               const lower = cleanStep.toLowerCase()
-                              
+
                               let shapeLeft = '['
                               let shapeRight = ']'
                               let className = 'process'
-                              
+
                               if (idx === 0 || idx === allSteps.length - 1 || lower.includes('start') || lower.includes('end')) {
                                 shapeLeft = '(['
                                 shapeRight = '])'
@@ -1464,18 +1570,18 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                               }
 
                               chart += `  step${idx}${shapeLeft}"${cleanStep}"${shapeRight}:::${className}\n`
-                              
+
                               if (idx < allSteps.length - 1) {
                                 // Add basic yes/no edge logic if step seems like a decision
                                 let edge = '-->'
                                 if (className === 'decision') {
-                                   if (allSteps[idx+1].toLowerCase().includes('yes') || allSteps[idx+1].toLowerCase().includes('valid')) {
-                                      edge = '-->|Yes|'
-                                   } else if (allSteps[idx+1].toLowerCase().includes('no ') || allSteps[idx+1].toLowerCase().includes('invalid')) {
-                                      edge = '-->|No|'
-                                   } else {
-                                      edge = '-->|Yes/Next|'
-                                   }
+                                  if (allSteps[idx + 1].toLowerCase().includes('yes') || allSteps[idx + 1].toLowerCase().includes('valid')) {
+                                    edge = '-->|Yes|'
+                                  } else if (allSteps[idx + 1].toLowerCase().includes('no ') || allSteps[idx + 1].toLowerCase().includes('invalid')) {
+                                    edge = '-->|No|'
+                                  } else {
+                                    edge = '-->|Yes/Next|'
+                                  }
                                 }
                                 chart += `  step${idx} ${edge} step${idx + 1}\n`
                               }
@@ -1483,11 +1589,11 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
                             return (
                               <div key={i} className="flow-card-monochrome">
-                                <div className="flow-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-                                  <h5 style={{ margin: 0 }}>{f.name}</h5>
-                                  <button className="personalize-btn-monochrome" onClick={() => setViewFlowChart(chart)} style={{ padding: '4px 12px', fontSize: '12px', margin: 0, height: 'auto' }}>🔍 View Graph</button>
+                                <div className="flow-card-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'flex-start', marginBottom: '16px', gap: '16px' }}>
+                                  <h5 style={{ margin: 0, flex: 1, wordBreak: 'break-word' }}>{f.name}</h5>
+                                  <button className="personalize-btn-monochrome" onClick={() => setViewFlowChart(chart)} style={{ padding: '6px 14px', fontSize: '12px', margin: 0, height: 'auto', backgroundColor: '#3b82f6', color: '#ffffff', border: 'none', borderRadius: '6px', fontWeight: '500', cursor: 'pointer', flexShrink: 0 }}>View Full Graph</button>
                                 </div>
-                                <div className="flow-steps-visual-monochrome" style={{ background: '#ffffff', padding: '24px 16px', overflowX: 'auto', display: 'flex', justifyContent: 'flex-start' }}>
+                                <div className="flow-steps-visual-monochrome" style={{ background: '#ffffff', padding: '24px 16px', overflow: 'hidden', maxHeight: '400px', display: 'flex', justifyContent: 'center' }}>
                                   <Mermaid chart={chart} />
                                 </div>
                               </div>
@@ -1585,22 +1691,51 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               </div>
             ) : (
               <div className="history-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
-                {projects.map(p => (
-                  <div key={p.id} className="history-card" style={{ padding: '20px', background: 'white', borderRadius: '8px', border: '1px solid #e2e8f0', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 2px 4px rgba(0,0,0,0.05)' }} onClick={() => loadProject(p.id)} onMouseOver={e => e.currentTarget.style.borderColor = '#3b82f6'} onMouseOut={e => e.currentTarget.style.borderColor = '#e2e8f0'}>
-                    <div>
-                      <h3 style={{ margin: '0 0 8px 0', fontSize: '18px', fontWeight: '600', color: '#1e293b' }}>{p.name || 'Unnamed Project'}</h3>
-                      <p style={{ margin: '0', fontSize: '14px', color: '#3b82f6' }}>
+                {projects.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage).map(p => (
+                  <div key={p.id} className="history-card-sleek" style={{ padding: '16px 20px', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: '4px solid #fbbf24', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }} onClick={() => loadProject(p.id)} onMouseOver={e => { e.currentTarget.style.borderColor = '#fbbf24'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }} onMouseOut={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.borderLeftColor = '#fbbf24'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; }}>
+                    <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
+                      <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
+                        <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '12px', fontWeight: '700', padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.5px' }}>
+                          PROJ
+                        </span>
+                        <h3 style={{ margin: '0', fontSize: '16px', fontWeight: '700', color: '#0f172a' }}>{p.name || 'Unnamed Project'}</h3>
+                      </div>
+                      <p style={{ margin: '0', fontSize: '14px', color: '#475569', paddingLeft: '56px' }}>
                         Created: {new Date(p.created_at * 1000).toLocaleString()} | {p.total_cases} Test Cases
                       </p>
                     </div>
-                    <div style={{ display: 'flex', gap: '8px' }}>
-                      <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
-                      <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#f8fafc', color: '#475569', border: '1px solid #cbd5e1' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit / Notes</button>
-                      <button className="btn btn-primary" style={{ padding: '8px 16px', fontSize: '14px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
-                      <button className="btn" style={{ padding: '8px 16px', fontSize: '14px', background: '#fef2f2', color: '#ef4444', border: '1px solid #fca5a5' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
+                    <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
+                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit</button>
+                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
+                      <button className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
                     </div>
                   </div>
                 ))}
+
+                {projects.length > itemsPerPage && (
+                  <div style={{ display: 'flex', justifyContent: 'center', alignItems: 'center', gap: '16px', marginTop: '24px', paddingBottom: '16px' }}>
+                    <button
+                      className="btn"
+                      style={{ padding: '8px 16px', background: historyPage === 1 ? '#e2e8f0' : '#3b82f6', color: historyPage === 1 ? '#94a3b8' : 'white', border: 'none', borderRadius: '6px', cursor: historyPage === 1 ? 'not-allowed' : 'pointer' }}
+                      disabled={historyPage === 1}
+                      onClick={() => setHistoryPage(p => p - 1)}
+                    >
+                      Previous
+                    </button>
+                    <span style={{ fontSize: '14px', color: '#64748b' }}>
+                      Page {historyPage} of {Math.ceil(projects.length / itemsPerPage)}
+                    </span>
+                    <button
+                      className="btn"
+                      style={{ padding: '8px 16px', background: historyPage >= Math.ceil(projects.length / itemsPerPage) ? '#e2e8f0' : '#3b82f6', color: historyPage >= Math.ceil(projects.length / itemsPerPage) ? '#94a3b8' : 'white', border: 'none', borderRadius: '6px', cursor: historyPage >= Math.ceil(projects.length / itemsPerPage) ? 'not-allowed' : 'pointer' }}
+                      disabled={historyPage >= Math.ceil(projects.length / itemsPerPage)}
+                      onClick={() => setHistoryPage(p => p + 1)}
+                    >
+                      Next
+                    </button>
+                  </div>
+                )}
               </div>
             )}
           </div>
@@ -1614,39 +1749,29 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 <h2>3. Test Case Suite</h2>
                 <p>Execute, filter, or copy your generated test plan.</p>
               </div>
-              <div className="header-metrics-row" style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center' }}>
-                <div className="header-metric-badge">
-                  <span>Total</span>
-                  <strong>{totalCount}</strong>
+              <div className="header-metrics-row" style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                <div style={{ background: '#0f172a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total</span>
+                  <strong style={{ color: 'white' }}>{totalCount}</strong>
                 </div>
-                <div className="header-metric-badge p0">
-                  <span>P0</span>
-                  <strong>{p0Count}</strong>
+                <div style={{ background: '#dc2626', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P0</span>
+                  <strong style={{ color: 'white' }}>{p0Count}</strong>
                 </div>
-                <div className="header-metric-badge p1">
-                  <span>P1</span>
-                  <strong>{p1Count}</strong>
+                <div style={{ background: '#ea580c', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P1</span>
+                  <strong style={{ color: 'white' }}>{p1Count}</strong>
                 </div>
-                <div className="header-metric-badge p2">
-                  <span>P2</span>
-                  <strong>{p2Count}</strong>
+                <div style={{ background: '#16a34a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P2</span>
+                  <strong style={{ color: 'white' }}>{p2Count}</strong>
                 </div>
-                <div className="header-metric-badge p3">
-                  <span>P3</span>
-                  <strong>{p3Count}</strong>
+                <div style={{ background: '#2563eb', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P3</span>
+                  <strong style={{ color: 'white' }}>{p3Count}</strong>
                 </div>
-                <button className="personalize-btn-monochrome" onClick={() => setShowPersonalizeModal(true)} style={{ marginLeft: 'auto' }}>
-                  ✨ Chat Bot
-                </button>
-                <button className="personalize-btn-monochrome" onClick={exportDoc} style={{ background: '#f4f4f5', color: '#18181b', borderColor: '#e4e4e7' }}>
-                  📄 View as Doc
-                </button>
-                <button className="personalize-btn-monochrome" onClick={executeSelectedTestCases} style={{ background: '#10b981', color: 'white', borderColor: '#059669' }}>
-                  ▶ Execute Selected
-                </button>
-                <button className="personalize-btn-monochrome" onClick={saveProject} style={{ background: '#3b82f6', color: 'white', borderColor: '#2563eb' }}>
-                  💾 Save Project
-                </button>
+
+                {/* Execute and Save buttons moved to the filter bar below */}
               </div>
             </div>
 
@@ -1659,9 +1784,18 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
             ) : (
               <>
                 {/* Search and Filters */}
-                <div className="filter-bar-monochrome" style={{ display: 'flex', gap: '16px', alignItems: 'center' }}>
+                <div className="filter-bar-monochrome" style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
+                  <div style={{ flex: 1, display: 'flex', alignItems: 'center', background: '#ffffff', borderRadius: '9999px', border: '1px solid black', padding: '6px 20px', boxShadow: '0 2px 6px rgba(0, 0, 0, 0.08)' }}>
+                    <input
+                      type="text"
+                      placeholder="search"
+                      value={searchQuery}
+                      onChange={(e) => setSearchQuery(e.target.value)}
+                      style={{ flex: 1, border: 'none', outline: 'none', fontSize: '14px', color: '#475569', background: 'transparent' }}
+                    />
+                    <i className="fa-solid fa-magnifying-glass" style={{ color: '#06b6d4', fontSize: '16px', marginLeft: '12px' }}></i>
+                  </div>
                   <button
-                    className="secondary-monochrome-btn"
                     onClick={() => {
                       const allSelected = cases.every(tc => selectedTestCases[tc.id]);
                       const newSelection = { ...selectedTestCases };
@@ -1670,24 +1804,28 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       });
                       setSelectedTestCases(newSelection);
                     }}
-                    style={{ padding: '6px 12px', fontSize: '13px', margin: 0 }}
+                    style={{ background: '#f1f5f9', color: '#0f172a', border: '1px solid #cbd5e1', borderRadius: '6px', height: '32px', padding: '0 12px', fontSize: '13px', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', boxSizing: 'border-box' }}
                   >
                     <input
                       type="checkbox"
                       checked={cases.length > 0 && cases.every(tc => selectedTestCases[tc.id])}
                       readOnly
-                      style={{ marginRight: '6px' }}
+                      style={{ margin: 0 }}
                     />
                     {cases.length > 0 && cases.every(tc => selectedTestCases[tc.id]) ? 'Deselect All' : 'Select All'}
                   </button>
-                  <input
-                    type="text"
-                    className="search-input-monochrome"
-                    placeholder="🔍 Search test cases (scenario, description, steps, expected)..."
-                    value={searchQuery}
-                    onChange={(e) => setSearchQuery(e.target.value)}
-                    style={{ flex: 1 }}
-                  />
+                  <button onClick={executeSelectedTestCases} style={{ background: '#10b981', color: 'white', border: 'none', borderRadius: '6px', height: '32px', padding: '0 12px', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', boxSizing: 'border-box' }}>
+                    ▶ Execute
+                  </button>
+                  <button onClick={saveProject} style={{ background: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', height: '32px', padding: '0 12px', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', boxSizing: 'border-box' }}>
+                    💾 Save
+                  </button>
+                  <button onClick={exportDoc} style={{ background: '#8b5cf6', color: 'white', border: 'none', borderRadius: '6px', height: '32px', padding: '0 12px', fontSize: '13px', fontWeight: '500', display: 'flex', alignItems: 'center', gap: '6px', cursor: 'pointer', margin: 0, boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', boxSizing: 'border-box' }}>
+                    📄 View Doc
+                  </button>
+                  <button onClick={() => setShowPersonalizeModal(true)} style={{ background: '#0f172a', color: 'white', border: 'none', borderRadius: '6px', width: '32px', height: '32px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer', margin: 0, boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)', boxSizing: 'border-box' }} title="Chat Bot">
+                    <i className="fa-solid fa-robot"></i>
+                  </button>
                 </div>
 
                 {/* Test Cases List Grouped by Section (Table Design) */}
@@ -1791,16 +1929,27 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                         </button>
                                       </div>
                                     ) : (
-                                      <button
-                                        className="btn btn-secondary"
-                                        style={{ padding: '4px 8px', fontSize: '0.8rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '4px', cursor: 'pointer' }}
-                                        onClick={() => {
-                                          setAiSelectionModeTestCaseId(tc.id);
-                                          setAiSelectedParts([]);
-                                        }}
-                                      >
-                                        🪄 AI Edit
-                                      </button>
+                                      <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'center', justifyContent: 'center' }}>
+                                        <button
+                                          className="btn btn-secondary"
+                                          title="AI Edit"
+                                          style={{ padding: '4px', fontSize: '1.2rem', backgroundColor: '#3b82f6', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                          onClick={() => {
+                                            setAiSelectionModeTestCaseId(tc.id);
+                                            setAiSelectedParts([]);
+                                          }}
+                                        >
+                                          🪄
+                                        </button>
+                                        <button
+                                          className="btn btn-secondary"
+                                          title="Execute"
+                                          style={{ padding: '4px', fontSize: '1.2rem', backgroundColor: '#10b981', color: 'white', border: 'none', borderRadius: '6px', cursor: 'pointer', display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', boxShadow: '0 1px 3px rgba(0,0,0,0.1)' }}
+                                          onClick={() => executeSingleTestCase(tc.id)}
+                                        >
+                                          ▶
+                                        </button>
+                                      </div>
                                     )}
                                   </td>
                                   <td {...getCellProps(tc, 'id', { whiteSpace: 'nowrap', fontWeight: 600 })} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)}>{tc.id}</td>
@@ -1916,14 +2065,19 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
       )}
 
       {viewFlowChart && (
-        <div className="preview-modal-overlay" onClick={() => setViewFlowChart(null)}>
-          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '90vw', height: '90vh', maxWidth: '1400px', display: 'flex', flexDirection: 'column' }}>
-            <div className="preview-modal-header">
-              <h3>User Flow Diagram</h3>
-              <button className="close-modal-btn" onClick={() => setViewFlowChart(null)}>✕</button>
+        <div className="preview-modal-overlay" onClick={() => { setViewFlowChart(null); setGraphZoom(1); }}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ width: '80vw', height: '80vh', maxWidth: '1000px', display: 'flex', flexDirection: 'column' }}>
+            <div className="preview-modal-header" style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center' }}>
+              <h3 style={{ margin: 0 }}>User Flow Diagram</h3>
+              <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+                <button className="personalize-btn-monochrome" onClick={() => setGraphZoom(z => Math.max(0.4, z - 0.2))} style={{ padding: '2px 10px', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px', border: '1px solid #e4e4e7', background: '#f4f4f5', cursor: 'pointer' }}>-</button>
+                <span style={{ fontSize: '13px', fontWeight: 'bold', minWidth: '40px', textAlign: 'center' }}>{Math.round(graphZoom * 100)}%</span>
+                <button className="personalize-btn-monochrome" onClick={() => setGraphZoom(z => Math.min(3, z + 0.2))} style={{ padding: '2px 10px', fontSize: '16px', fontWeight: 'bold', borderRadius: '4px', border: '1px solid #e4e4e7', background: '#f4f4f5', cursor: 'pointer' }}>+</button>
+                <button className="close-modal-btn" onClick={() => { setViewFlowChart(null); setGraphZoom(1); }} style={{ marginLeft: '12px' }}>✕</button>
+              </div>
             </div>
-            <div className="preview-modal-body" style={{ flex: 1, padding: '40px', overflow: 'auto', background: '#ffffff', textAlign: 'center' }}>
-              <div style={{ display: 'inline-block', minWidth: '100%' }}>
+            <div className="preview-modal-body" style={{ flex: 1, padding: '40px', overflow: 'auto', background: '#ffffff', display: 'flex', justifyContent: 'center', alignItems: 'flex-start' }}>
+              <div style={{ transform: `scale(${graphZoom})`, transformOrigin: 'top center', transition: 'transform 0.2s', display: 'flex', justifyContent: 'center', minWidth: '100%' }} className="full-graph-mermaid-wrapper">
                 <Mermaid chart={viewFlowChart} />
               </div>
             </div>
@@ -2088,6 +2242,24 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   Create & Start
                 </button>
               </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {executionPopup && (
+        <div className="preview-modal-overlay" onClick={() => setExecutionPopup(null)}>
+          <div className="preview-modal-content" onClick={(e) => e.stopPropagation()} style={{ maxWidth: '400px', height: 'auto', textAlign: 'center' }}>
+            <div className="preview-modal-header" style={{ borderBottom: 'none', paddingBottom: 0 }}>
+              <h3 style={{ color: executionPopup.error ? '#ef4444' : '#10b981', margin: '0 auto', fontSize: '20px', display: 'flex', alignItems: 'center', gap: '8px' }}>
+                {executionPopup.error ? <i className="fa-solid fa-triangle-exclamation"></i> : <i className="fa-solid fa-circle-check"></i>}
+                {executionPopup.error ? 'Warning' : 'Success'}
+              </h3>
+              <button className="close-modal-btn" onClick={() => setExecutionPopup(null)} style={{ position: 'absolute', right: '16px', top: '16px' }}>✕</button>
+            </div>
+            <div className="preview-modal-body" style={{ padding: '24px 20px 32px 20px' }}>
+              <p style={{ fontSize: '15px', color: '#475569', margin: '0 0 24px 0', lineHeight: '1.5' }}>{executionPopup.message}</p>
+              <button className="btn btn-primary" style={{ padding: '10px 24px', width: '100%', maxWidth: '200px', borderRadius: '8px', fontSize: '15px', fontWeight: '500' }} onClick={() => setExecutionPopup(null)}>OK</button>
             </div>
           </div>
         </div>
