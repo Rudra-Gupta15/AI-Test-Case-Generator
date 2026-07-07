@@ -1,3 +1,4 @@
+import Swal from 'sweetalert2';
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import projectService from '../../services/projectService.js'
@@ -240,7 +241,11 @@ export default function NewProjectForm() {
     try {
       const { nodes: generatedTree } = await treeService.generateFromPrompt(promptText)
       if (!generatedTree || generatedTree.length === 0) {
-        alert("Failed to generate structure or empty response")
+        Swal.fire({
+      title: "Failed to generate structure or empty response",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
         return
       }
       
@@ -268,7 +273,11 @@ export default function NewProjectForm() {
       }
     } catch (err) {
       console.error(err)
-      alert("Failed to generate structure")
+      Swal.fire({
+      title: "Failed to generate structure",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 

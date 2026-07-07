@@ -1,5 +1,6 @@
 import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
+import Swal from 'sweetalert2'
 import { useAuth } from '../context/AuthContext.jsx'
 import client from '../services/client.js'
 import {
@@ -59,7 +60,14 @@ export default function Admin() {
   }
 
   async function handleDelete(userId) {
-    if (!confirm('Delete this user? This cannot be undone.')) return
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: 'Delete this user? This cannot be undone.',
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes'
+    });
+    if (!result.isConfirmed) return
     try {
       await client.delete(`/api/admin/users/${userId}`)
       setUsers(prev => prev.filter(u => u.id !== userId))

@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import projectService from '../services/projectService.js'
 import ProjectCard from '../components/projects/ProjectCard.jsx'
+import Swal from 'sweetalert2'
 import { BarChart, Bar, XAxis, YAxis, Tooltip, ResponsiveContainer, PieChart, Pie, Cell, LabelList } from 'recharts'
 
 export default function Projects() {
@@ -22,7 +23,6 @@ export default function Projects() {
   const [showCreatePopup, setShowCreatePopup] = useState(false)
   const [selectedProject, setSelectedProject] = useState(null)
   const [projectStats, setProjectStats] = useState({ file_uploaded: 0, analysis: 0, tc_generated: 0, executed: 0 })
-  const [deleteTarget, setDeleteTarget] = useState(null)
 
   const [notepadContent, setNotepadContent] = useState('')
   const [isSavingNotepad, setIsSavingNotepad] = useState(false)
@@ -68,22 +68,45 @@ export default function Projects() {
     }
   }
 
-  function handleDeleteProject(projectId, e, type = 'project') {
+  async function handleDeleteProject(projectId, e, type = 'project') {
     e.stopPropagation()
-    setDeleteTarget({ id: projectId, type })
-  }
+    const title = type === 'version' ? "Delete Version?" : "Delete Project?"
+    const text = type === 'version' 
+      ? "Are you sure you want to delete this version? This action cannot be undone and all associated data will be permanently removed."
+      : "Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently removed."
 
-  async function confirmDelete() {
-    if (!deleteTarget) return
-    try {
-      await projectService.delete(deleteTarget.id)
-      setProjects(prev => prev.filter(p => p.id !== deleteTarget.id))
-      setDeleteTarget(null)
-      if (selectedProject?.id === deleteTarget.id) {
-        setSelectedProject(null)
+    const result = await Swal.fire({
+      title,
+      text,
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonColor: '#ef4444',
+      cancelButtonColor: '#cbd5e1',
+      confirmButtonText: 'Delete',
+      cancelButtonText: 'Cancel'
+    })
+
+    if (result.isConfirmed) {
+      try {
+        await projectService.delete(projectId)
+        setProjects(prev => prev.filter(p => p.id !== projectId))
+        if (selectedProject?.id === projectId) {
+          setSelectedProject(null)
+        }
+        Swal.fire({
+          title: "Deleted!",
+          text: "The item has been deleted.",
+          icon: "success",
+          timer: 1500,
+          showConfirmButton: false
+        })
+      } catch (err) {
+        Swal.fire({
+          title: "Failed to delete project: " + err.message,
+          icon: 'error',
+          confirmButtonText: 'OK'
+        })
       }
-    } catch (err) {
-      alert("Failed to delete project: " + err.message)
     }
   }
 
@@ -510,93 +533,6 @@ export default function Projects() {
                         </button>
                       </div>
                     </form>
-                  </div>
-                </div>
-              )}
-
-              {/* Delete Confirmation Popup */}
-              {deleteTarget && (
-                <div
-                  style={{
-                    position: "fixed",
-                    top: 0,
-                    left: 0,
-                    width: "100%",
-                    height: "100%",
-                    background: "rgba(15, 23, 42, 0.3)",
-                    backdropFilter: "blur(8px)",
-                    display: "flex",
-                    justifyContent: "center",
-                    alignItems: "center",
-                    zIndex: 999
-                  }}
-                  onClick={() => setDeleteTarget(null)}
-                >
-                  <div
-                    onClick={(e) => e.stopPropagation()}
-                    style={{
-                      width: "400px",
-                      background: "#ffffff",
-                      borderRadius: "20px",
-                      padding: "32px",
-                      boxShadow: "0 25px 50px -12px rgba(15, 23, 42, 0.15)",
-                      textAlign: "center"
-                    }}
-                  >
-                    <div style={{ fontSize: "40px", marginBottom: "16px" }}>⚠️</div>
-                    <h2 style={{ fontSize: "20px", fontWeight: "800", color: "#0f172a", margin: "0 0 12px 0" }}>
-                      {deleteTarget.type === 'version' ? "Delete Version?" : "Delete Project?"}
-                    </h2>
-                    <p style={{ fontSize: "14px", color: "#64748b", margin: "0 0 24px 0", lineHeight: "1.5" }}>
-                      {deleteTarget.type === 'version'
-                        ? "Are you sure you want to delete this version? This action cannot be undone and all associated data will be permanently removed."
-                        : "Are you sure you want to delete this project? This action cannot be undone and all associated data will be permanently removed."}
-                    </p>
-
-                    <div style={{ display: "flex", gap: "12px", justifyContent: "center" }}>
-                      <button
-                        type="button"
-                        onClick={() => setDeleteTarget(null)}
-                        style={{
-                          background: "transparent",
-                          border: "1.5px solid #cbd5e1",
-                          color: "#64748b",
-                          padding: "10px 20px",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                          transition: "all 0.2s"
-                        }}
-                        onMouseOver={e => { e.currentTarget.style.background = '#f1f5f9'; e.currentTarget.style.color = '#334155'; }}
-                        onMouseOut={e => { e.currentTarget.style.background = 'transparent'; e.currentTarget.style.color = '#64748b'; }}
-                      >
-                        Cancel
-                      </button>
-                      <button
-                        onClick={confirmDelete}
-                        style={{
-                          background: "linear-gradient(135deg, #ef4444 0%, #dc2626 100%)",
-                          color: "#fff",
-                          padding: "10px 24px",
-                          border: "none",
-                          borderRadius: "8px",
-                          cursor: "pointer",
-                          fontWeight: "600",
-                          transition: "all 0.2s",
-                          boxShadow: "0 4px 12px rgba(220, 38, 38, 0.2)"
-                        }}
-                        onMouseOver={e => {
-                          e.currentTarget.style.transform = 'translateY(-1px)';
-                          e.currentTarget.style.boxShadow = '0 6px 16px rgba(220, 38, 38, 0.3)';
-                        }}
-                        onMouseOut={e => {
-                          e.currentTarget.style.transform = 'translateY(0)';
-                          e.currentTarget.style.boxShadow = '0 4px 12px rgba(220, 38, 38, 0.2)';
-                        }}
-                      >
-                        Delete
-                      </button>
-                    </div>
                   </div>
                 </div>
               )}

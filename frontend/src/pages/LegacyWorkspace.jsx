@@ -1,3 +1,4 @@
+import Swal from 'sweetalert2';
 import { useState, useRef, useEffect } from 'react'
 import { useNavigate, useParams } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
@@ -257,24 +258,47 @@ export default function LegacyWorkspace() {
 
         setStep(1)
       } else {
-        alert("Failed to load project")
+        Swal.fire({
+      title: "Failed to load project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert("Error loading project: " + err.message)
+      Swal.fire({
+      title: "Error loading project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 
   const deleteProject = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this project? This cannot be undone.")) return;
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "Are you sure you want to delete this project? This cannot be undone.",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes'
+    });
+    if (!result.isConfirmed) return;
     try {
       const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
       if (response.ok) {
         fetchProjects();
       } else {
-        alert("Failed to delete project");
+        Swal.fire({
+      title: "Failed to delete project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert("Error deleting project: " + err.message);
+      Swal.fire({
+      title: "Error deleting project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
@@ -291,10 +315,18 @@ export default function LegacyWorkspace() {
         downloadLink.click();
         document.body.removeChild(downloadLink);
       } else {
-        alert('Failed to fetch project for sharing')
+        Swal.fire({
+      title: 'Failed to fetch project for sharing',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert('Error sharing project: ' + err.message)
+      Swal.fire({
+      title: 'Error sharing project: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 
@@ -317,18 +349,34 @@ export default function LegacyWorkspace() {
             })
           });
           if (response.ok) {
-            alert('Project imported successfully!');
+            Swal.fire({
+      title: 'Project imported successfully!',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
             fetchProjects();
           } else {
-            alert('Failed to import project');
+            Swal.fire({
+      title: 'Failed to import project',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
           }
         } catch (err) {
-          alert('Error parsing or importing JSON: ' + err.message);
+          Swal.fire({
+      title: 'Error parsing or importing JSON: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
         }
       };
       reader.readAsText(file);
     } catch (err) {
-      alert('Failed to read file');
+      Swal.fire({
+      title: 'Failed to read file',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
     e.target.value = ''; // reset file input
   }
@@ -365,10 +413,18 @@ export default function LegacyWorkspace() {
         setAiSelectionModeTestCaseId(null);
         setAiSelectedParts([]);
       } else {
-        alert('Failed to edit test case: ' + (updatedTestCase.error || 'Unknown error'));
+        Swal.fire({
+      title: 'Failed to edit test case: ' + (updatedTestCase.error || 'Unknown error'),
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert('Error editing test case: ' + err.message);
+      Swal.fire({
+      title: 'Error editing test case: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     } finally {
       setIsAiEditing(false);
     }
@@ -386,17 +442,31 @@ export default function LegacyWorkspace() {
         setEditingProject(null);
         fetchProjects();
       } else {
-        alert("Failed to update project");
+        Swal.fire({
+      title: "Failed to update project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert("Error updating project: " + err.message);
+      Swal.fire({
+      title: "Error updating project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
   const executeSelectedTestCases = () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
-      setExecutionPopup({ message: "Please select at least one test case to execute.", error: true });
+      Swal.fire({
+      title: "Warning",
+      text: "Please select at least one test case to execute.",
+      icon: "warning",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#10b981"
+    });
       return;
     }
 
@@ -424,7 +494,13 @@ export default function LegacyWorkspace() {
     });
 
     setSelectedTestCases({});
-    setExecutionPopup({ message: `Successfully executed ${selectedIds.length} test case(s)!` });
+    Swal.fire({
+      title: "Success",
+      text: `Successfully executed ${selectedIds.length} test case(s)!`,
+      icon: "success",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#10b981"
+    });
   };
 
   const executeSingleTestCase = (tcId) => {
@@ -450,7 +526,13 @@ export default function LegacyWorkspace() {
         }
       }
     });
-    setExecutionPopup({ message: `Successfully executed 1 test case!` });
+    Swal.fire({
+      title: "Success",
+      text: "Successfully executed 1 test case!",
+      icon: "success",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#10b981"
+    });
   };
 
   const saveProject = async () => {
@@ -466,15 +548,62 @@ export default function LegacyWorkspace() {
         body: JSON.stringify({ job_id: job.id }),
       })
       if (response.ok) {
-        alert("Project saved successfully!")
+        Swal.fire({
+      title: "Project saved successfully!",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
         fetchProjects()
       } else {
-        alert("Failed to save project.")
+        Swal.fire({
+      title: "Failed to save project.",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert("Error saving project: " + err.message)
+      Swal.fire({
+      title: "Error saving project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
+
+
+  const handleRemoveFile = (fileName, setter) => {
+    Swal.fire({
+      title: "Remove File?",
+      text: `Are you sure you want to remove ${fileName}?`,
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#cbd5e1",
+      confirmButtonText: "Remove",
+      cancelButtonText: "Cancel"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setter(null);
+      }
+    });
+  };
+
+  const handleRemoveImage = (index) => {
+    Swal.fire({
+      title: "Remove Image?",
+      text: "Are you sure you want to remove this image?",
+      icon: "warning",
+      showCancelButton: true,
+      confirmButtonColor: "#ef4444",
+      cancelButtonColor: "#cbd5e1",
+      confirmButtonText: "Remove",
+      cancelButtonText: "Cancel"
+    }).then((result) => {
+      if (result.isConfirmed) {
+        setImages(prev => prev.filter((_, i) => i !== index));
+      }
+    });
+  };
 
   const startAnalysis = async () => {
     setSubmitting(true)
@@ -559,7 +688,13 @@ export default function LegacyWorkspace() {
         });
         setGenerating(false);
         setUserPrompt('');
-        setExecutionPopup({ message: 'Execution completed successfully!' });
+        Swal.fire({
+      title: "Success",
+      text: "Execution completed successfully!",
+      icon: "success",
+      confirmButtonText: "OK",
+      confirmButtonColor: "#10b981"
+    });
       } else {
         // It's a generate action, so we poll for the job
         pollJob(data.job_id)
@@ -598,10 +733,18 @@ export default function LegacyWorkspace() {
         // Fetch projects to update sidebar immediately
         fetchProjects();
       } else {
-        alert("Failed to create project");
+        Swal.fire({
+      title: "Failed to create project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (e) {
-      alert("Error: " + e.message);
+      Swal.fire({
+      title: "Error: " + e.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
@@ -671,7 +814,11 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 **Postcondition:** ${tc.postcondition || 'None'}`
 
     navigator.clipboard.writeText(md)
-    alert(`Copied ${tc.id} to clipboard as Markdown!`)
+    Swal.fire({
+      title: `Copied ${tc.id} to clipboard as Markdown!`,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
   }
 
   const exportDoc = () => {
@@ -1300,7 +1447,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                   <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(brd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setBrd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(brd.name, setBrd)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
                                 </div>
                               </div>
                             ) : (
@@ -1327,7 +1474,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                   <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(fsd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setFsd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(fsd.name, setFsd)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
                                 </div>
                               </div>
                             ) : (
@@ -1354,7 +1501,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                   <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(srs)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setSrs(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(srs.name, setSrs)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
                                 </div>
                               </div>
                             ) : (
@@ -1381,7 +1528,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 </div>
                                 <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
                                   <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(frd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setFrd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(frd.name, setFrd)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
                                 </div>
                               </div>
                             ) : (
@@ -1418,7 +1565,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                           <div className="sleek-images-gallery">
                             {images.map((img, index) => (
                               <div key={index} className="sleek-image-thumb">
-                                <button type="button" className="sleek-remove-img" onClick={() => setImages(images.filter((_, i) => i !== index))}>✕</button>
+                                <button type="button" className="sleek-remove-img" onClick={() => handleRemoveImage(index)}>✕</button>
                                 <ImageThumbnail file={img} />
                               </div>
                             ))}

@@ -1,3 +1,4 @@
+import Swal from 'sweetalert2';
 import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
@@ -228,24 +229,47 @@ export function ProjectWorkspaceProvider({ children }) {
 
         setStep(3)
       } else {
-        alert("Failed to load project")
+        Swal.fire({
+      title: "Failed to load project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert("Error loading project: " + err.message)
+      Swal.fire({
+      title: "Error loading project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 
   const deleteProject = async (id) => {
-    if (!window.confirm("Are you sure you want to delete this project?")) return;
+    const result = await Swal.fire({
+      title: 'Are you sure?',
+      text: "Are you sure you want to delete this project?",
+      icon: 'warning',
+      showCancelButton: true,
+      confirmButtonText: 'Yes'
+    });
+    if (!result.isConfirmed) return;
     try {
       const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
       if (response.ok) {
         fetchProjects();
       } else {
-        alert("Failed to delete project");
+        Swal.fire({
+      title: "Failed to delete project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert("Error deleting project: " + err.message);
+      Swal.fire({
+      title: "Error deleting project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
@@ -262,10 +286,18 @@ export function ProjectWorkspaceProvider({ children }) {
         downloadLink.click();
         document.body.removeChild(downloadLink);
       } else {
-        alert('Failed to fetch project for sharing')
+        Swal.fire({
+      title: 'Failed to fetch project for sharing',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert('Error sharing project: ' + err.message)
+      Swal.fire({
+      title: 'Error sharing project: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 
@@ -288,18 +320,34 @@ export function ProjectWorkspaceProvider({ children }) {
             })
           });
           if (response.ok) {
-            alert('Project imported successfully!');
+            Swal.fire({
+      title: 'Project imported successfully!',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
             fetchProjects();
           } else {
-            alert('Failed to import project');
+            Swal.fire({
+      title: 'Failed to import project',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
           }
         } catch (err) {
-          alert('Error parsing or importing JSON: ' + err.message);
+          Swal.fire({
+      title: 'Error parsing or importing JSON: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
         }
       };
       reader.readAsText(file);
     } catch (err) {
-      alert('Failed to read file');
+      Swal.fire({
+      title: 'Failed to read file',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
     e.target.value = ''; // reset file input
   }
@@ -336,10 +384,18 @@ export function ProjectWorkspaceProvider({ children }) {
         setAiSelectionModeTestCaseId(null);
         setAiSelectedParts([]);
       } else {
-        alert('Failed to edit test case: ' + (updatedTestCase.error || 'Unknown error'));
+        Swal.fire({
+      title: 'Failed to edit test case: ' + (updatedTestCase.error || 'Unknown error'),
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert('Error editing test case: ' + err.message);
+      Swal.fire({
+      title: 'Error editing test case: ' + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     } finally {
       setIsAiEditing(false);
     }
@@ -357,17 +413,29 @@ export function ProjectWorkspaceProvider({ children }) {
         setEditingProject(null);
         fetchProjects();
       } else {
-        alert("Failed to update project");
+        Swal.fire({
+      title: "Failed to update project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (err) {
-      alert("Error updating project: " + err.message);
+      Swal.fire({
+      title: "Error updating project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
   const executeSelectedTestCases = () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
-      alert("Please select at least one test case to execute.");
+      Swal.fire({
+      title: "Please select at least one test case to execute.",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       return;
     }
 
@@ -395,7 +463,11 @@ export function ProjectWorkspaceProvider({ children }) {
     });
     
     setSelectedTestCases({});
-    alert(`Successfully executed ${selectedIds.length} test cases!`);
+    Swal.fire({
+      title: `Successfully executed ${selectedIds.length} test cases!`,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
   };
 
   const saveProject = async () => {
@@ -411,12 +483,24 @@ export function ProjectWorkspaceProvider({ children }) {
         body: JSON.stringify({ job_id: job.id }),
       })
       if (response.ok) {
-        alert("Project saved successfully!")
+        Swal.fire({
+      title: "Project saved successfully!",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       } else {
-        alert("Failed to save project.")
+        Swal.fire({
+      title: "Failed to save project.",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
       }
     } catch (err) {
-      alert("Error saving project: " + err.message)
+      Swal.fire({
+      title: "Error saving project: " + err.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
     }
   }
 
@@ -503,7 +587,11 @@ export function ProjectWorkspaceProvider({ children }) {
         });
         setGenerating(false);
         setUserPrompt('');
-        alert('Execution completed successfully!');
+        Swal.fire({
+      title: 'Execution completed successfully!',
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       } else {
         // It's a generate action, so we poll for the job
         pollJob(data.job_id)
@@ -542,10 +630,18 @@ export function ProjectWorkspaceProvider({ children }) {
         // Fetch projects to update sidebar immediately
         fetchProjects();
       } else {
-        alert("Failed to create project");
+        Swal.fire({
+      title: "Failed to create project",
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
       }
     } catch (e) {
-      alert("Error: " + e.message);
+      Swal.fire({
+      title: "Error: " + e.message,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    });
     }
   };
 
@@ -615,7 +711,11 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 **Postcondition:** ${tc.postcondition || 'None'}`
 
     navigator.clipboard.writeText(md)
-    alert(`Copied ${tc.id} to clipboard as Markdown!`)
+    Swal.fire({
+      title: `Copied ${tc.id} to clipboard as Markdown!`,
+      icon: 'info',
+      confirmButtonText: 'OK'
+    })
   }
 
   const exportDoc = () => {
