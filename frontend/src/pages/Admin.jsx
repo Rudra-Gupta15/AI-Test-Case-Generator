@@ -2,16 +2,16 @@ import { useState, useEffect } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useAuth } from '../context/AuthContext.jsx'
 import client from '../services/client.js'
-import { 
-  Users, 
-  Shield, 
-  Power, 
-  UserPlus, 
-  Trash2, 
-  ArrowLeft, 
-  LogOut, 
-  X, 
-  AlertTriangle 
+import {
+  Users,
+  Shield,
+  Power,
+  UserPlus,
+  Trash2,
+  ArrowLeft,
+  LogOut,
+  X,
+  AlertTriangle
 } from 'lucide-react'
 
 export default function Admin() {
@@ -78,10 +78,12 @@ export default function Admin() {
       <div className="floating-navbar-container">
         <div className="floating-navbar" style={{ padding: '16px 40px' }}>
           <div className="nav-brand" style={{ gap: '10px' }}>
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-              <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+            <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }} onClick={() => navigate('/projects')}>
+              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                <img src="/Logo.png" alt="Logo" style={{ height: '44px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+              </div>
+              <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
-            <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             <span style={{ color: '#a78bfa', fontSize: '10px', fontWeight: '800', padding: '2px 8px', borderRadius: '6px', background: 'rgba(167, 139, 250, 0.15)', marginLeft: '8px', border: '1px solid rgba(167, 139, 250, 0.25)', letterSpacing: '0.05em' }}>ADMIN</span>
           </div>
           <div style={{ display: 'flex', gap: '12px', alignItems: 'center' }}>
@@ -146,8 +148,8 @@ export default function Admin() {
             <Users size={16} style={{ color: '#64748b' }} />
             <span>{totalAccounts} account{totalAccounts !== 1 ? 's' : ''} configured</span>
           </div>
-          <button 
-            className="admin-btn admin-btn-primary" 
+          <button
+            className="admin-btn admin-btn-primary"
             onClick={() => setShowCreate(true)}
           >
             <UserPlus size={14} /> Create Account

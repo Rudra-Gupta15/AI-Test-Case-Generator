@@ -236,6 +236,25 @@ export default function LegacyWorkspace() {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
+
+        try {
+          const filesResponse = await fetch(`/api/projects/${id}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            if (filesData.brd) setBrd(filesData.brd); else setBrd(null);
+            if (filesData.fsd) setFsd(filesData.fsd); else setFsd(null);
+            if (filesData.srs) setSrs(filesData.srs); else setSrs(null);
+            if (filesData.frd) setFrd(filesData.frd); else setFrd(null);
+            if (filesData.images) setImages(filesData.images); else setImages([]);
+          }
+        } catch (e) {
+          console.error("Failed to load project files", e);
+        }
+
+        if (data.github_url) setGithubUrl(data.github_url);
+        if (data.project_url) setProjectUrl(data.project_url);
+        if (data.figma_url) setFigmaUrl(data.figma_url);
+
         setStep(1)
       } else {
         alert("Failed to load project")
@@ -1140,10 +1159,12 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   <i className={`fa-solid ${sidebarCollapsed ? 'fa-circle-chevron-right' : 'fa-circle-chevron-left'}`} style={{ fontSize: '22px' }}></i>
                 </button>
               )}
-              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
-                <img src="/Logo.png" alt="Logo" style={{ height: '28px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+              <div style={{ display: 'flex', alignItems: 'center', gap: '16px', cursor: 'pointer' }} onClick={() => navigate('/projects')}>
+                <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'center' }}>
+                  <img src="/Logo.png" alt="Logo" style={{ height: '44px', width: 'auto', objectFit: 'contain', borderRadius: '4px' }} />
+                </div>
+                <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
               </div>
-              <span className="nav-brand-name" style={{ background: 'linear-gradient(to right, #ffffff, #94a3b8)', WebkitBackgroundClip: 'text', WebkitTextFillColor: 'transparent', fontWeight: '800', letterSpacing: '0.5px', whiteSpace: 'nowrap' }}>AI QA REVIEWER</span>
             </div>
             <div className="nav-links">
               <button
@@ -1255,7 +1276,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               <div className="upload-inputs-container new-sleek-design">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'stretch', width: '100%' }}>
                   {/* COLUMN 1: PROJECT DOCUMENTS */}
-                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', minWidth: 0, background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
                     {/* SECTION 1: PROJECT DOCUMENTS */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
@@ -1265,20 +1286,25 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <div className="sleek-upload-list">
 
                         {/* BRD */}
-                        <div className={`sleek-list-item ${brd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className={`sleek-list-item ${brd ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: brd ? '1px solid #10b981' : '1px solid #e2e8f0', background: brd ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: brd ? 'column' : 'row', alignItems: brd ? 'stretch' : 'center', justifyContent: 'space-between', gap: brd ? '12px' : '0' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: brd ? '0' : '16px' }}>
                             <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>BRD (Business Requirements)</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>BRD (Business Requirements)</span>
                           </div>
-                          <div className="sleek-item-right">
+                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: brd ? 'none' : 1, width: brd ? '100%' : 'auto', minWidth: 0, justifyContent: brd ? 'stretch' : 'flex-end' }}>
                             {brd ? (
-                              <>
-                                <span className="sleek-filename">{brd.name}</span>
-                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(brd)}>👁</button>
-                                <button type="button" className="sleek-icon-btn danger" onClick={() => setBrd(null)}>✕</button>
-                              </>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
+                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
+                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={brd.name}>{brd.name}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(brd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setBrd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                </div>
+                              </div>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setBrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1287,20 +1313,25 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* FSD */}
-                        <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className={`sleek-list-item ${fsd ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: fsd ? '1px solid #10b981' : '1px solid #e2e8f0', background: fsd ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: fsd ? 'column' : 'row', alignItems: fsd ? 'stretch' : 'center', justifyContent: 'space-between', gap: fsd ? '12px' : '0' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: fsd ? '0' : '16px' }}>
                             <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>FSD (Functional Specs)</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>FSD (Functional Specs)</span>
                           </div>
-                          <div className="sleek-item-right">
+                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: fsd ? 'none' : 1, width: fsd ? '100%' : 'auto', minWidth: 0, justifyContent: fsd ? 'stretch' : 'flex-end' }}>
                             {fsd ? (
-                              <>
-                                <span className="sleek-filename">{fsd.name}</span>
-                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(fsd)}>👁</button>
-                                <button type="button" className="sleek-icon-btn danger" onClick={() => setFsd(null)}>✕</button>
-                              </>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
+                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
+                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={fsd.name}>{fsd.name}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(fsd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setFsd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                </div>
+                              </div>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFsd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1309,20 +1340,25 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* SRS */}
-                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: srs ? '1px solid #10b981' : '1px solid #e2e8f0', background: srs ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: srs ? 'column' : 'row', alignItems: srs ? 'stretch' : 'center', justifyContent: 'space-between', gap: srs ? '12px' : '0' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: srs ? '0' : '16px' }}>
                             <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>SRS (Software Requirements)</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>SRS (Software Requirements)</span>
                           </div>
-                          <div className="sleek-item-right">
+                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: srs ? 'none' : 1, width: srs ? '100%' : 'auto', minWidth: 0, justifyContent: srs ? 'stretch' : 'flex-end' }}>
                             {srs ? (
-                              <>
-                                <span className="sleek-filename">{srs.name}</span>
-                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(srs)}>👁</button>
-                                <button type="button" className="sleek-icon-btn danger" onClick={() => setSrs(null)}>✕</button>
-                              </>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
+                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
+                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={srs.name}>{srs.name}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(srs)} title="Preview"><i className="fa-solid fa-eye"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setSrs(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                </div>
+                              </div>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1331,20 +1367,25 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
 
                         {/* FRD */}
-                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`} style={{ padding: '16px 20px' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center' }}>
+                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: frd ? '1px solid #10b981' : '1px solid #e2e8f0', background: frd ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: frd ? 'column' : 'row', alignItems: frd ? 'stretch' : 'center', justifyContent: 'space-between', gap: frd ? '12px' : '0' }}>
+                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: frd ? '0' : '16px' }}>
                             <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600' }}>FRD (Functional Requirements)</span>
+                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>FRD (Functional Requirements)</span>
                           </div>
-                          <div className="sleek-item-right">
+                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: frd ? 'none' : 1, width: frd ? '100%' : 'auto', minWidth: 0, justifyContent: frd ? 'stretch' : 'flex-end' }}>
                             {frd ? (
-                              <>
-                                <span className="sleek-filename">{frd.name}</span>
-                                <button type="button" className="sleek-icon-btn" onClick={() => setPreviewFile(frd)}>👁</button>
-                                <button type="button" className="sleek-icon-btn danger" onClick={() => setFrd(null)}>✕</button>
-                              </>
+                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
+                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
+                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={frd.name}>{frd.name}</span>
+                                </div>
+                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(frd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
+                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setFrd(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                                </div>
+                              </div>
                             ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap' }}>
+                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
                                 <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
                                 <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
                               </label>
@@ -1357,7 +1398,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   </div>
 
                   {/* COLUMN 2: DESIGN & UI REFERENCES */}
-                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', minWidth: 0, background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
                     {/* SECTION 2: DESIGN & UI */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
@@ -1408,7 +1449,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   </div>
 
                   {/* COLUMN 3: EXTERNAL LINKS & SUBMIT ACTIONS */}
-                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
+                  <div className="sleek-column" style={{ display: 'flex', flexDirection: 'column', gap: '24px', flex: '1 1 300px', width: '100%', minWidth: 0, background: 'transparent', border: '1px solid #e2e8f0', borderRadius: '16px', padding: '24px', boxSizing: 'border-box', alignSelf: 'stretch', minHeight: '100%' }}>
                     {/* SECTION 3: EXTERNAL LINKS */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
@@ -1692,7 +1733,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
             ) : (
               <div className="history-list" style={{ display: 'flex', flexDirection: 'column', gap: '16px', marginTop: '20px' }}>
                 {projects.slice((historyPage - 1) * itemsPerPage, historyPage * itemsPerPage).map(p => (
-                  <div key={p.id} className="history-card-sleek" style={{ padding: '16px 20px', background: '#ffffff', borderRadius: '8px', border: '1px solid #e2e8f0', borderLeft: '4px solid #fbbf24', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }} onClick={() => loadProject(p.id)} onMouseOver={e => { e.currentTarget.style.borderColor = '#fbbf24'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }} onMouseOut={e => { e.currentTarget.style.borderColor = '#e2e8f0'; e.currentTarget.style.borderLeftColor = '#fbbf24'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; }}>
+                  <div key={p.id} className="history-card-sleek" style={{ padding: '16px 20px', background: '#fffef6', borderRadius: '8px', border: '1px solid #fef08a', borderLeft: '4px solid #f59e0b', display: 'flex', justifyContent: 'space-between', alignItems: 'center', cursor: 'pointer', transition: 'all 0.2s ease', boxShadow: '0 1px 3px rgba(0,0,0,0.05)' }} onClick={() => loadProject(p.id)} onMouseOver={e => { e.currentTarget.style.borderColor = '#f59e0b'; e.currentTarget.style.boxShadow = '0 4px 6px rgba(0,0,0,0.05)'; }} onMouseOut={e => { e.currentTarget.style.borderColor = '#fef08a'; e.currentTarget.style.borderLeftColor = '#f59e0b'; e.currentTarget.style.boxShadow = '0 1px 3px rgba(0,0,0,0.05)'; }}>
                     <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', flex: 1 }}>
                       <div style={{ display: 'flex', alignItems: 'center', gap: '12px' }}>
                         <span style={{ background: '#fef3c7', color: '#d97706', fontSize: '12px', fontWeight: '700', padding: '4px 8px', borderRadius: '4px', letterSpacing: '0.5px' }}>
@@ -1705,10 +1746,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
-                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit</button>
-                      <button className="px-4 py-2 bg-slate-800 text-white rounded-md text-sm hover:bg-slate-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
-                      <button className="px-4 py-2 bg-red-600 text-white rounded-md text-sm hover:bg-red-700 transition-colors font-medium border-none cursor-pointer" style={{ padding: '8px 16px' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
+                      <button className="px-4 py-2 bg-blue-400 text-white rounded-md text-sm hover:bg-blue-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
+                      <button className="px-4 py-2 bg-purple-400 text-white rounded-md text-sm hover:bg-purple-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit</button>
+                      <button className="px-4 py-2 bg-emerald-400 text-white rounded-md text-sm hover:bg-emerald-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
+                      <button className="px-4 py-2 bg-rose-400 text-white rounded-md text-sm hover:bg-rose-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
                     </div>
                   </div>
                 ))}

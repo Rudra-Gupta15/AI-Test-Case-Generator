@@ -207,6 +207,25 @@ export function ProjectWorkspaceProvider({ children }) {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
+        
+        try {
+          const filesResponse = await fetch(`/api/projects/${id}/files`);
+          if (filesResponse.ok) {
+            const filesData = await filesResponse.json();
+            if (filesData.brd) setBrd(filesData.brd); else setBrd(null);
+            if (filesData.fsd) setFsd(filesData.fsd); else setFsd(null);
+            if (filesData.srs) setSrs(filesData.srs); else setSrs(null);
+            if (filesData.frd) setFrd(filesData.frd); else setFrd(null);
+            if (filesData.images) setImages(filesData.images); else setImages([]);
+          }
+        } catch (e) {
+          console.error("Failed to load project files", e);
+        }
+
+        if (data.github_url) setGithubUrl(data.github_url);
+        if (data.project_url) setProjectUrl(data.project_url);
+        if (data.figma_url) setFigmaUrl(data.figma_url);
+
         setStep(3)
       } else {
         alert("Failed to load project")
