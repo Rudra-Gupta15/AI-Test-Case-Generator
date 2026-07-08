@@ -23,6 +23,7 @@ export default function LegacyWorkspace() {
   const [githubUrl, setGithubUrl] = useState('')
   const [projectUrl, setProjectUrl] = useState('')
   const [deep, setDeep] = useState(false)
+  const [aiMode, setAiMode] = useState('strict')
 
   // Job & UI states
   const [job, setJob] = useState(null)
@@ -672,6 +673,8 @@ export default function LegacyWorkspace() {
     if (githubUrl) formData.append('github_url', githubUrl)
     if (projectUrl) formData.append('project_url', projectUrl)
     formData.append('deep', deep)
+    formData.append('ai_mode', aiMode)
+    if (id && id !== 'new') formData.append('project_id', id)
 
     try {
       const res = await fetch('/api/analyze', { method: 'POST', body: formData })
@@ -1643,6 +1646,15 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   <div className="toggle-row sleek-toggle" style={{ margin: 0, display: 'flex', alignItems: 'center', justifyContent: 'flex-start', gap: '10px' }}>
                     <input type="checkbox" id="deep" checked={deep} onChange={(e) => setDeep(e.target.checked)} style={{ width: '16px', height: '16px', margin: 0, cursor: 'pointer' }} />
                     <label htmlFor="deep" style={{ fontWeight: '600', color: '#475569', fontSize: '13.5px', cursor: 'pointer', lineHeight: '1.4' }}>Deep mode (gpt-oss:120b — slower, extremely thorough)</label>
+                  </div>
+                  <div style={{ width: '100%', marginBottom: '4px' }}>
+                    <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
+                      <select id="aiMode" value={aiMode} onChange={(e) => setAiMode(e.target.value)} style={{ width: '100%', height: '44px', padding: '0 40px 0 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '14.5px', color: '#334155', fontWeight: '400', outline: 'none', cursor: 'pointer', appearance: 'none', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)' }} onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; e.target.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)' }}>
+                        <option value="strict">Strict / Consistent Mode (Temperature 0, locked seed)</option>
+                        <option value="creative">Creative / Exploratory Mode (Temperature 0.7, random seed)</option>
+                      </select>
+                      <span style={{ position: 'absolute', right: '14px', color: '#475569', fontSize: '12px', pointerEvents: 'none' }}><i className="fa-solid fa-chevron-down"></i></span>
+                    </div>
                   </div>
                   <button
                     className="sleek-submit-btn"

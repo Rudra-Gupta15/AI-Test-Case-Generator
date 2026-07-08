@@ -188,8 +188,10 @@ async def analyze(
     project_url: str | None = Form(None),
     deep: bool = Form(False),
     node_id: str | None = Form(None),
+    project_id: str | None = Form(None),
+    ai_mode: str = Form("strict"),
 ):
-    job_id = create_job()
+    job_id = create_job(project_id, ai_mode=ai_mode)
     job_dir = os.path.join(UPLOADS_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
 

@@ -192,19 +192,19 @@ Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact sha
 """
 
 
-async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None = None):
+async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None = None, ai_mode: str = "strict"):
     if images_b64 and messages:
         # attach images to the last user message (Ollama multimodal format)
         messages[-1]["images"] = images_b64
+
+    options = {"temperature": 0.0, "seed": 42} if ai_mode == "strict" else {"temperature": 0.7}
 
     body = {
         "model": model,
         "messages": messages,
         "stream": False,
         "format": "json",
-        "options": {
-            "temperature": 0.0
-        }
+        "options": options
     }
 
     async with httpx.AsyncClient(timeout=240, trust_env=False, proxies=None) as client:
@@ -218,7 +218,7 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: UNDERSTAND  (unchanged)
 # ──────────────────────────────────────────────────────────────────────
-async def understand(brd_text: str, fsd_text: str, srs_text: str, frd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False):
+async def understand(brd_text: str, fsd_text: str, srs_text: str, frd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False, ai_mode: str = "strict"):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
     figma_text = "\n".join([
@@ -277,7 +277,7 @@ REFERENCE IMAGES: {len(image_paths)} image(s) attached for visual context.
 # ──────────────────────────────────────────────────────────────────────
 # Stage 2: PLAN  (new — deterministic test plan with exact counts)
 # ──────────────────────────────────────────────────────────────────────
-async def plan_test_cases(understanding: dict, user_prompt: str = "", deep: bool = False):
+async def plan_test_cases(understanding: dict, user_prompt: str = "", deep: bool = False, ai_mode: str = "strict"):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
     user_content = f"""UNDERSTANDING SUMMARY:
@@ -296,7 +296,7 @@ Remember: EVERY feature listed above MUST appear in the plan. Do not skip any fe
     ]
 
     try:
-        plan = await _ollama_chat(messages, model)
+        plan = await _ollama_chat(messages, model, ai_mode=ai_mode)
         # Validate: ensure every feature from understanding is in the plan
         feature_names_in_plan = {item["feature_name"].lower() for item in plan.get("plan", [])}
         for feature in understanding.get("features", []):
@@ -324,7 +324,7 @@ Remember: EVERY feature listed above MUST appear in the plan. Do not skip any fe
 # ──────────────────────────────────────────────────────────────────────
 # Stage 3: GENERATE PER-FEATURE  (new — one LLM call per feature)
 # ──────────────────────────────────────────────────────────────────────
-async def generate_feature_test_cases(product_context: dict, feature_plan: dict, deep: bool = False):
+async def generate_feature_test_cases(product_context: dict, feature_plan: dict, deep: bool = False, ai_mode: str = "strict"):
     """Generate test cases for a single feature based on the plan."""
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
@@ -366,13 +366,13 @@ FRD:
     ]
 
     try:
-        result = await _ollama_chat(messages, model)
+        result = await _ollama_chat(messages, model, ai_mode=ai_mode)
         return result.get("test_cases", [])
     except Exception as e:
         return []
 
 
-async def generate_baseline_test_cases(product_context: dict, baseline_item: dict, deep: bool = False):
+async def generate_baseline_test_cases(product_context: dict, baseline_item: dict, deep: bool = False, ai_mode: str = "strict"):
     """Generate baseline test cases for a single category."""
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
@@ -393,7 +393,7 @@ You MUST produce EXACTLY {baseline_item.get('count', 2)} test cases.
     ]
 
     try:
-        result = await _ollama_chat(messages, model)
+        result = await _ollama_chat(messages, model, ai_mode=ai_mode)
         return result.get("test_cases", [])
     except Exception as e:
         return []

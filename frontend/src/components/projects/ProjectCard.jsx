@@ -51,9 +51,6 @@ export default function ProjectCard({ project, onClick, onDelete, onHistoryClick
           >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="12" cy="12" r="1"></circle><circle cx="19" cy="12" r="1"></circle><circle cx="5" cy="12" r="1"></circle></svg>
           </button>
-          {project.is_legacy && (
-            <span className="proj-card-badge proj-card-badge--legacy" style={{ background: '#f1f5f9', color: '#475569', border: '1px solid #cbd5e1', padding: '2px 6px', borderRadius: '4px', fontSize: '10px', fontWeight: '600' }}>Legacy</span>
-          )}
         </div>
       </div>
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: project.description ? '12px' : '0' }}>
@@ -88,7 +85,6 @@ export default function ProjectCard({ project, onClick, onDelete, onHistoryClick
               {project.testing_type}
             </span>
           )}
-          <span>{project.domain || 'General'}</span>
         </div>
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px', color: '#94a3b8', fontSize: '12px' }}>
           <span>|</span>

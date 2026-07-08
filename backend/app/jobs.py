@@ -4,8 +4,9 @@ import time
 JOBS = {}
 
 
-def create_job():
-    job_id = str(uuid.uuid4())
+def create_job(job_id=None, ai_mode="strict"):
+    if not job_id:
+        job_id = str(uuid.uuid4())
     JOBS[job_id] = {
         "id": job_id,
         "status": "queued",
@@ -14,6 +15,7 @@ def create_job():
         "understanding": None,
         "test_report": None,
         "error": None,
+        "ai_mode": ai_mode,
     }
     return job_id
 
