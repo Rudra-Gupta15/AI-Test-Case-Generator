@@ -1,4 +1,5 @@
 import PropTypes from 'prop-types'
+import Swal from 'sweetalert2'
 import './ProjectCard.css'
 
 const DOMAIN_ICONS = {
@@ -58,7 +59,20 @@ export default function ProjectCard({ project, onClick, onDelete, onHistoryClick
       <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: project.description ? '12px' : '0' }}>
         <h3 className="proj-card-title" style={{ margin: 0 }}>{project.name}</h3>
         {project.description && (
-          <div title={project.description} style={{ color: '#94a3b8', cursor: 'help', display: 'flex', alignItems: 'center' }}>
+          <div 
+            title={project.description} 
+            style={{ color: '#94a3b8', cursor: 'pointer', display: 'flex', alignItems: 'center' }}
+            onClick={(e) => {
+              e.stopPropagation();
+              Swal.fire({
+                title: 'Project Description',
+                text: project.description,
+                icon: 'info',
+                confirmButtonColor: '#3b82f6',
+                confirmButtonText: 'Close'
+              });
+            }}
+          >
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
               <circle cx="12" cy="12" r="10"></circle>
               <path d="M12 16v-4"></path>

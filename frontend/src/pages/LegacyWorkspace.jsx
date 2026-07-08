@@ -131,6 +131,58 @@ export default function LegacyWorkspace() {
     return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}`
   }
 
+  const [showLoadingModal, setShowLoadingModal] = useState(true)
+
+  useEffect(() => {
+    if (submitting && showLoadingModal) {
+      const currentStageLabel = ANALYZE_STAGES.find(s => s.key === job?.stage)?.label || 'Preparing...';
+      const percent = getStageProgress(job?.stage).percent;
+      const est = getStageProgress(job?.stage).est;
+      
+      const htmlContent = `
+        <p style="font-size: 14px; color: #475569;">Please wait while the AI parses your specifications and builds the test suite.</p>
+        <div style="margin-top: 20px; text-align: left; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
+          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
+            <span style="font-weight: 600; color: #1e293b; font-size: 14px;">${currentStageLabel}</span>
+            <span style="font-weight: 700; color: #3b82f6; font-size: 14px;">${percent}%</span>
+          </div>
+          <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
+            <div style="width: ${percent}%; height: 100%; background: #3b82f6; transition: width 0.3s ease;"></div>
+          </div>
+          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b;">
+            <span>Elapsed: <strong>${formatTime(elapsedTime)}</strong></span>
+            <span>${est}</span>
+          </div>
+        </div>
+      `;
+
+      if (Swal.isVisible()) {
+        Swal.update({ html: htmlContent });
+      } else {
+        Swal.fire({
+          title: 'Analyzing & Generating',
+          html: htmlContent,
+          allowOutsideClick: false,
+          showConfirmButton: false,
+          showCancelButton: true,
+          cancelButtonText: 'Minimize to Background',
+          cancelButtonColor: '#94a3b8',
+          didOpen: () => {
+            Swal.showLoading();
+          }
+        }).then((result) => {
+          if (result.dismiss === Swal.DismissReason.cancel) {
+            setShowLoadingModal(false);
+          }
+        });
+      }
+    } else {
+      if (Swal.isVisible()) {
+        Swal.close();
+      }
+    }
+  }, [submitting, job?.stage, elapsedTime, showLoadingModal]);
+
   // Step 3 (Report) states
   const [reportFilter, setReportFilter] = useState('All')
   const [searchQuery, setSearchQuery] = useState('')
@@ -1332,6 +1384,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                 onClick={() => {
                   if (submitting) {
                     setStep(1)
+                    setShowLoadingModal(true)
                   } else if (job?.test_report) {
                     setStep(3)
                   }
@@ -1379,47 +1432,6 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               )}
             </div>
 
-            {submitting ? (
-              <div className="loading-card-container">
-                <div className="loading-card-inner">
-                  <div className="spinner-large" />
-                  <h3 className="loading-title">Analyzing & Generating Test Suite</h3>
-                  <p className="loading-subtitle">
-                    Please wait while the AI parses your specifications and builds the test suite.
-                  </p>
-
-                  <div className="progress-bar-container">
-                    <div className="progress-bar-fill" style={{ width: `${getStageProgress(job?.stage).percent}%` }} />
-                  </div>
-
-                  <div className="loading-status-row">
-                    <span className="loading-stage-text">
-                      Current Stage: <strong>{ANALYZE_STAGES.find(s => s.key === job?.stage)?.label || 'Preparing...'}</strong>
-                    </span>
-                    <span className="loading-percentage">{getStageProgress(job?.stage).percent}%</span>
-                  </div>
-
-                  <div className="loading-time-row">
-                    <span>Elapsed: <strong>{formatTime(elapsedTime)}</strong></span>
-                    <span>{getStageProgress(job?.stage).est}</span>
-                  </div>
-
-                  <div className="loading-stages-list">
-                    {ANALYZE_STAGES.filter(s => s.key !== 'done').map((s, i) => {
-                      const isDone = stageIndex > i
-                      const isActive = job?.stage === s.key
-                      return (
-                        <div key={s.key} className={`loading-stage-item ${isDone ? 'done' : ''} ${isActive ? 'active' : ''}`}>
-                          <span className="stage-dot">{isDone ? '✓' : ''}</span>
-                          <span className="stage-label">{s.label}</span>
-                          {isActive && <span className="stage-pulse-text">Processing...</span>}
-                        </div>
-                      )
-                    })}
-                  </div>
-                </div>
-              </div>
-            ) : (
               <div className="upload-inputs-container new-sleek-design">
                 <div style={{ display: 'flex', flexWrap: 'wrap', gap: '32px', alignItems: 'stretch', width: '100%' }}>
                   {/* COLUMN 1: PROJECT DOCUMENTS */}
@@ -1427,7 +1439,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     {/* SECTION 1: PROJECT DOCUMENTS */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #f59e0b', color: '#f59e0b', background: '#fffbeb', fontSize: '16px', flexShrink: 0 }}>📁</span> Project Documents</h3>
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #f59e0b', color: '#f59e0b', background: '#fffbeb', fontSize: '16px', flexShrink: 0 }}>📁</span> Project Documents</h3>
                         <p>Upload any requirements or spec documents (Optional)</p>
                       </div>
                       <div className="sleek-upload-list">
@@ -1549,7 +1561,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     {/* SECTION 2: DESIGN & UI */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #ec4899', color: '#ec4899', background: '#fdf2f8', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-palette"></i></span> Design & UI References</h3>
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #ec4899', color: '#ec4899', background: '#fdf2f8', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-palette"></i></span> Design & UI References</h3>
                         <p>Upload mockup images or link your Figma designs (Optional)</p>
                       </div>
 
@@ -1600,7 +1612,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     {/* SECTION 3: EXTERNAL LINKS */}
                     <div className="sleek-section">
                       <div className="sleek-section-header">
-                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', background: 'transparent', border: '1.5px solid #1e293b', color: '#1e293b', background: '#f1f5f9', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-code"></i></span> Code & Environment</h3>
+                        <h3><span style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', width: '36px', height: '36px', borderRadius: '50%', border: '1.5px solid #1e293b', color: '#1e293b', background: '#f1f5f9', fontSize: '16px', flexShrink: 0 }}><i className="fa-solid fa-code"></i></span> Code & Environment</h3>
                         <p>Link your repository and deployed application (Optional)</p>
                       </div>
                       <div className="sleek-inputs-row" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
@@ -1644,7 +1656,6 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
                 {job?.status === 'error' && <div className="error-banner" style={{ marginTop: 24 }}>{job.error}</div>}
               </div>
-            )}
           </div>
         )}
 
