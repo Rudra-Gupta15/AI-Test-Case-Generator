@@ -22,6 +22,9 @@ export default function LegacyWorkspace() {
   const [frd, setFrd] = useState(null)
   const [githubUrl, setGithubUrl] = useState('')
   const [projectUrl, setProjectUrl] = useState('')
+  const [siteUsername, setSiteUsername] = useState('')
+  const [sitePassword, setSitePassword] = useState('')
+  const [showSitePassword, setShowSitePassword] = useState(false)
   const [deep, setDeep] = useState(false)
   const [aiMode, setAiMode] = useState('strict')
 
@@ -133,13 +136,27 @@ export default function LegacyWorkspace() {
   }
 
   const [showLoadingModal, setShowLoadingModal] = useState(true)
+  const [animatedPercent, setAnimatedPercent] = useState(0)
 
   // Reset modal visibility when a new submission starts
   useEffect(() => {
     if (submitting) {
       setShowLoadingModal(true);
+      setAnimatedPercent(0);
     }
   }, [submitting]);
+
+  useEffect(() => {
+    const target = getStageProgress(job?.stage).percent;
+    const interval = setInterval(() => {
+      setAnimatedPercent(prev => {
+        if (prev < target) return prev + 1;
+        if (prev > target) return target;
+        return prev;
+      });
+    }, 40); // 40ms per percent
+    return () => clearInterval(interval);
+  }, [job?.stage]);
 
   // Step 3 (Report) states
   const [reportFilter, setReportFilter] = useState('All')
@@ -264,6 +281,8 @@ export default function LegacyWorkspace() {
 
         if (data.github_url) setGithubUrl(data.github_url);
         if (data.project_url) setProjectUrl(data.project_url);
+        if (data.site_username) setSiteUsername(data.site_username);
+        if (data.site_password) setSitePassword(data.site_password);
         if (data.figma_url) setFigmaUrl(data.figma_url);
 
         setStep(1)
@@ -629,6 +648,8 @@ export default function LegacyWorkspace() {
     if (figmaToken) formData.append('figma_token', figmaToken)
     if (githubUrl) formData.append('github_url', githubUrl)
     if (projectUrl) formData.append('project_url', projectUrl)
+    if (siteUsername) formData.append('site_username', siteUsername)
+    if (sitePassword) formData.append('site_password', sitePassword)
     formData.append('deep', deep)
     formData.append('ai_mode', aiMode)
     if (id && id !== 'new') formData.append('project_id', id)
@@ -1606,6 +1627,46 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://your-deployed-app.com" />
                           </div>
                         </div>
+
+                        {/* Site Credentials */}
+                        <div className="sleek-input-group" style={{ marginTop: '4px' }}>
+                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '6px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                            <i className="fa-solid fa-key" style={{ color: '#f59e0b', fontSize: '13px' }}></i>
+                            Site Credentials
+                            <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', marginLeft: '4px' }}>Optional — for login-protected sites</span>
+                          </label>
+                          <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
+                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ position: 'absolute', left: '16px', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-user"></i></span>
+                              <input
+                                type="text"
+                                value={siteUsername}
+                                onChange={(e) => setSiteUsername(e.target.value)}
+                                style={{ width: '100%', height: '48px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }}
+                                placeholder="Username or Email"
+                                autoComplete="off"
+                              />
+                            </div>
+                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                              <span style={{ position: 'absolute', left: '16px', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-lock"></i></span>
+                              <input
+                                type={showSitePassword ? 'text' : 'password'}
+                                value={sitePassword}
+                                onChange={(e) => setSitePassword(e.target.value)}
+                                style={{ width: '100%', height: '48px', padding: '0 44px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }}
+                                placeholder="Password"
+                                autoComplete="off"
+                              />
+                              <button
+                                type="button"
+                                onClick={() => setShowSitePassword(p => !p)}
+                                style={{ position: 'absolute', right: '14px', background: 'none', border: 'none', cursor: 'pointer', color: '#94a3b8', fontSize: '14px', padding: '4px', display: 'flex', alignItems: 'center' }}
+                              >
+                                <i className={`fa-solid ${showSitePassword ? 'fa-eye-slash' : 'fa-eye'}`}></i>
+                              </button>
+                            </div>
+                          </div>
+                        </div>
                       </div>
                     </div>
 
@@ -2449,7 +2510,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
       {/* Inline Analyzing Modal — sits on top while keeping upload page visible behind */}
       {submitting && showLoadingModal && (() => {
         const currentStageLabel = ANALYZE_STAGES.find(s => s.key === job?.stage)?.label || 'Preparing...';
-        const { percent, est } = getStageProgress(job?.stage);
+        const { est } = getStageProgress(job?.stage);
+        const percent = animatedPercent;
         return (
           <div style={{
             position: 'fixed', inset: 0, zIndex: 9999,

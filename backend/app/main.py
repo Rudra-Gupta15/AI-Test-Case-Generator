@@ -192,12 +192,18 @@ async def analyze(
     figma_token: str | None = Form(None),
     github_url: str | None = Form(None),
     project_url: str | None = Form(None),
+    site_username: str | None = Form(None),
+    site_password: str | None = Form(None),
     deep: bool = Form(False),
     node_id: str | None = Form(None),
     project_id: str | None = Form(None),
     ai_mode: str = Form("strict"),
 ):
     job_id = create_job(project_id, ai_mode=ai_mode)
+    # Store metadata in the job so it can be saved later
+    from app.jobs import update_job
+    update_job(job_id, github_url=github_url, project_url=project_url,
+               site_username=site_username, site_password=site_password)
     job_dir = os.path.join(UPLOADS_DIR, job_id)
     os.makedirs(job_dir, exist_ok=True)
 
@@ -361,6 +367,10 @@ class SaveProjectRequest(BaseModel):
     job_id: str
     understanding: Optional[dict] = None
     test_report: Optional[dict] = None
+    github_url: Optional[str] = None
+    project_url: Optional[str] = None
+    site_username: Optional[str] = None
+    site_password: Optional[str] = None
 
 
 class CreateEmptyProjectRequest(BaseModel):
@@ -570,13 +580,23 @@ async def save_project(req: SaveProjectRequest, db = Depends(get_db)):
     if understanding and isinstance(understanding, dict):
         product_type = understanding.get("product_type", "Unnamed Project")
 
+    # Pull URL/credentials from job if not in request
+    github_url = req.github_url or (job.get("github_url") if job else None)
+    project_url = req.project_url or (job.get("project_url") if job else None)
+    site_username = req.site_username or (job.get("site_username") if job else None)
+    site_password = req.site_password or (job.get("site_password") if job else None)
+
     existing_project = await db.projects.find_one({"id": req.job_id})
     if existing_project:
         await db.projects.update_one(
             {"id": req.job_id},
             {"$set": {
                 "understanding": understanding,
-                "test_report": test_report
+                "test_report": test_report,
+                "github_url": github_url,
+                "project_url": project_url,
+                "site_username": site_username,
+                "site_password": site_password,
             }}
         )
         project_id = req.job_id
@@ -587,6 +607,10 @@ async def save_project(req: SaveProjectRequest, db = Depends(get_db)):
             product_type=product_type,
             understanding=understanding,
             test_report=test_report,
+            github_url=github_url,
+            project_url=project_url,
+            site_username=site_username,
+            site_password=site_password,
         )
         p_dict = project.model_dump()
         await db.projects.insert_one(p_dict)
@@ -756,6 +780,10 @@ async def get_project(
         "domain": project.get("domain", ""),
         "testing_type": project.get("testing_type", ""),
         "methodology": project.get("methodology", ""),
+        "github_url": project.get("github_url", ""),
+        "project_url": project.get("project_url", ""),
+        "site_username": project.get("site_username", ""),
+        "site_password": project.get("site_password", ""),
     }
     JOBS[project["id"]] = job_data
     return job_data

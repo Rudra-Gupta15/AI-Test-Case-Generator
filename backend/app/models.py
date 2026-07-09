@@ -27,6 +27,10 @@ class Project(BaseModel):
     understanding: Optional[Dict[str, Any]] = None
     test_report: Optional[Dict[str, Any]] = None
     owner_id: Optional[str] = None
+    github_url: Optional[str] = None
+    project_url: Optional[str] = None
+    site_username: Optional[str] = None
+    site_password: Optional[str] = None
 
 class TreeNode(BaseModel):
     id: str = Field(default_factory=generate_id)
