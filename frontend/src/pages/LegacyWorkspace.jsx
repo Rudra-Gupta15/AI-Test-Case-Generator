@@ -134,55 +134,12 @@ export default function LegacyWorkspace() {
 
   const [showLoadingModal, setShowLoadingModal] = useState(true)
 
+  // Reset modal visibility when a new submission starts
   useEffect(() => {
-    if (submitting && showLoadingModal) {
-      const currentStageLabel = ANALYZE_STAGES.find(s => s.key === job?.stage)?.label || 'Preparing...';
-      const percent = getStageProgress(job?.stage).percent;
-      const est = getStageProgress(job?.stage).est;
-      
-      const htmlContent = `
-        <p style="font-size: 14px; color: #475569;">Please wait while the AI parses your specifications and builds the test suite.</p>
-        <div style="margin-top: 20px; text-align: left; background: #f8fafc; padding: 16px; border-radius: 8px; border: 1px solid #e2e8f0;">
-          <div style="display: flex; justify-content: space-between; margin-bottom: 8px;">
-            <span style="font-weight: 600; color: #1e293b; font-size: 14px;">${currentStageLabel}</span>
-            <span style="font-weight: 700; color: #3b82f6; font-size: 14px;">${percent}%</span>
-          </div>
-          <div style="width: 100%; background: #e2e8f0; height: 6px; border-radius: 3px; overflow: hidden; margin-bottom: 12px;">
-            <div style="width: ${percent}%; height: 100%; background: #3b82f6; transition: width 0.3s ease;"></div>
-          </div>
-          <div style="display: flex; justify-content: space-between; font-size: 12px; color: #64748b;">
-            <span>Elapsed: <strong>${formatTime(elapsedTime)}</strong></span>
-            <span>${est}</span>
-          </div>
-        </div>
-      `;
-
-      if (Swal.isVisible()) {
-        Swal.update({ html: htmlContent });
-      } else {
-        Swal.fire({
-          title: 'Analyzing & Generating',
-          html: htmlContent,
-          allowOutsideClick: false,
-          showConfirmButton: false,
-          showCancelButton: true,
-          cancelButtonText: 'Minimize to Background',
-          cancelButtonColor: '#94a3b8',
-          didOpen: () => {
-            Swal.showLoading();
-          }
-        }).then((result) => {
-          if (result.dismiss === Swal.DismissReason.cancel) {
-            setShowLoadingModal(false);
-          }
-        });
-      }
-    } else {
-      if (Swal.isVisible()) {
-        Swal.close();
-      }
+    if (submitting) {
+      setShowLoadingModal(true);
     }
-  }, [submitting, job?.stage, elapsedTime, showLoadingModal]);
+  }, [submitting]);
 
   // Step 3 (Report) states
   const [reportFilter, setReportFilter] = useState('All')
@@ -445,6 +402,7 @@ export default function LegacyWorkspace() {
           test_case: editingAITestCase,
           prompt: aiEditPrompt,
           deep: deep,
+          ai_mode: aiMode,
           selected_fields: aiSelectedParts.length > 0 ? aiSelectedParts : undefined
         })
       });
@@ -663,11 +621,10 @@ export default function LegacyWorkspace() {
     setJob(null)
 
     const formData = new FormData()
-    if (brd) formData.append('brd', brd)
-    if (fsd) formData.append('fsd', fsd)
-    if (srs) formData.append('srs', srs)
-    if (frd) formData.append('frd', frd)
-    images.forEach((img) => formData.append('images', img))
+    if (brd instanceof File) formData.append('brd', brd)
+    if (fsd instanceof File) formData.append('fsd', fsd)
+    if (srs instanceof File) formData.append('srs', srs)
+    if (frd instanceof File) formData.append('frd', frd)
     if (figmaUrl) formData.append('figma_url', figmaUrl)
     if (figmaToken) formData.append('figma_token', figmaToken)
     if (githubUrl) formData.append('github_url', githubUrl)
@@ -675,6 +632,8 @@ export default function LegacyWorkspace() {
     formData.append('deep', deep)
     formData.append('ai_mode', aiMode)
     if (id && id !== 'new') formData.append('project_id', id)
+    // Only append real File objects — skip metadata objects from loadProject
+    images.forEach((img) => { if (img instanceof File) formData.append('images', img) })
 
     try {
       const res = await fetch('/api/analyze', { method: 'POST', body: formData })
@@ -694,23 +653,35 @@ export default function LegacyWorkspace() {
   const pollJob = (jobId) => {
     clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
-      const res = await fetch(`/api/job/${jobId}`)
-      const data = await res.json()
-      setJob(data)
-      if (data.status === 'awaiting_prompt' || data.status === 'error' || (data.status === 'done' && data.test_report)) {
+      try {
+        const res = await fetch(`/api/job/${jobId}`)
+        if (!res.ok) {
+          clearInterval(pollRef.current)
+          setSubmitting(false)
+          setGenerating(false)
+          return
+        }
+        const data = await res.json()
+        setJob(data)
+        if (data.status === 'awaiting_prompt' || data.status === 'error' || (data.status === 'done' && data.test_report)) {
+          clearInterval(pollRef.current)
+          setSubmitting(false)
+          setGenerating(false)
+
+          if (data.status === 'awaiting_prompt') {
+            setStep(2)
+            setActiveTab('features')
+          } else if (data.status === 'done' && data.test_report) {
+            setStep(3)
+            setReportFilter('All')
+            setSearchQuery('')
+            setExpandedCases({})
+          }
+        }
+      } catch (e) {
         clearInterval(pollRef.current)
         setSubmitting(false)
         setGenerating(false)
-
-        if (data.status === 'awaiting_prompt') {
-          setStep(2)
-          setActiveTab('features')
-        } else if (data.status === 'done' && data.test_report) {
-          setStep(3)
-          setReportFilter('All')
-          setSearchQuery('')
-          setExpandedCases({})
-        }
       }
     }, 1500)
   }
@@ -1650,8 +1621,8 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                   <div style={{ width: '100%', marginBottom: '4px' }}>
                     <div style={{ position: 'relative', display: 'flex', alignItems: 'center', width: '100%' }}>
                       <select id="aiMode" value={aiMode} onChange={(e) => setAiMode(e.target.value)} style={{ width: '100%', height: '44px', padding: '0 40px 0 16px', borderRadius: '8px', border: '1px solid #cbd5e1', background: '#fff', fontSize: '14.5px', color: '#334155', fontWeight: '400', outline: 'none', cursor: 'pointer', appearance: 'none', transition: 'all 0.2s', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }} onFocus={(e) => { e.target.style.borderColor = '#3b82f6'; e.target.style.boxShadow = '0 0 0 3px rgba(59, 130, 246, 0.1)' }} onBlur={(e) => { e.target.style.borderColor = '#cbd5e1'; e.target.style.boxShadow = '0 1px 2px rgba(0,0,0,0.05)' }}>
-                        <option value="strict">Strict / Consistent Mode (Temperature 0, locked seed)</option>
-                        <option value="creative">Creative / Exploratory Mode (Temperature 0.7, random seed)</option>
+                        <option value="strict">Strict Mode</option>
+                        <option value="creative">Creative Mode</option>
                       </select>
                       <span style={{ position: 'absolute', right: '14px', color: '#475569', fontSize: '12px', pointerEvents: 'none' }}><i className="fa-solid fa-chevron-down"></i></span>
                     </div>
@@ -1916,10 +1887,10 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       </p>
                     </div>
                     <div style={{ display: 'flex', gap: '8px', alignItems: 'center' }}>
-                      <button className="px-4 py-2 bg-blue-400 text-white rounded-md text-sm hover:bg-blue-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
-                      <button className="px-4 py-2 bg-purple-400 text-white rounded-md text-sm hover:bg-purple-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit</button>
-                      <button className="px-4 py-2 bg-emerald-400 text-white rounded-md text-sm hover:bg-emerald-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
-                      <button className="px-4 py-2 bg-rose-400 text-white rounded-md text-sm hover:bg-rose-500 transition-colors font-medium border-none cursor-pointer shadow-sm" style={{ padding: '6px 14px' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
+                      <button style={{ padding: '6px 18px', background: '#3b82f6', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); shareProject(p.id); }}>Share</button>
+                      <button style={{ padding: '6px 18px', background: '#2563eb', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); setEditingProject(p); setEditProjectName(p.name || ''); setEditProjectNotepad(p.notepad || ''); }}>Edit</button>
+                      <button style={{ padding: '6px 18px', background: '#22c55e', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); loadProject(p.id); }}>Open</button>
+                      <button style={{ padding: '6px 18px', background: '#ef4444', color: '#fff', border: 'none', borderRadius: '6px', fontWeight: '600', fontSize: '14px', cursor: 'pointer' }} onClick={(e) => { e.stopPropagation(); deleteProject(p.id); }}>Delete</button>
                     </div>
                   </div>
                 ))}
@@ -2475,6 +2446,63 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
           </div>
         </div>
       )}
+      {/* Inline Analyzing Modal — sits on top while keeping upload page visible behind */}
+      {submitting && showLoadingModal && (() => {
+        const currentStageLabel = ANALYZE_STAGES.find(s => s.key === job?.stage)?.label || 'Preparing...';
+        const { percent, est } = getStageProgress(job?.stage);
+        return (
+          <div style={{
+            position: 'fixed', inset: 0, zIndex: 9999,
+            background: 'rgba(15, 23, 42, 0.55)',
+            backdropFilter: 'blur(4px)',
+            display: 'flex', alignItems: 'center', justifyContent: 'center'
+          }}>
+            <div style={{
+              background: '#fff', borderRadius: '16px', boxShadow: '0 20px 60px rgba(0,0,0,0.25)',
+              padding: '36px 32px', width: '440px', maxWidth: '90vw', textAlign: 'center'
+            }}>
+              <h2 style={{ margin: '0 0 8px', fontSize: '20px', fontWeight: '700', color: '#0f172a' }}>Analyzing &amp; Generating</h2>
+              <p style={{ fontSize: '14px', color: '#64748b', margin: '0 0 24px', lineHeight: '1.5' }}>Please wait while the AI parses your specifications and builds the test suite.</p>
+
+              <div style={{ background: '#f8fafc', border: '1px solid #e2e8f0', borderRadius: '10px', padding: '18px', marginBottom: '20px', textAlign: 'left' }}>
+                <div style={{ display: 'flex', justifyContent: 'space-between', marginBottom: '10px' }}>
+                  <span style={{ fontWeight: '600', color: '#1e293b', fontSize: '14px' }}>{currentStageLabel}</span>
+                  <span style={{ fontWeight: '700', color: '#3b82f6', fontSize: '14px' }}>{percent}%</span>
+                </div>
+                <div style={{ width: '100%', background: '#e2e8f0', height: '6px', borderRadius: '3px', overflow: 'hidden', marginBottom: '12px' }}>
+                  <div style={{ width: `${percent}%`, height: '100%', background: '#3b82f6', transition: 'width 0.5s ease', borderRadius: '3px' }} />
+                </div>
+                <div style={{ display: 'flex', justifyContent: 'space-between', fontSize: '12px', color: '#64748b' }}>
+                  <span>Elapsed: <strong>{formatTime(elapsedTime)}</strong></span>
+                  <span>{est}</span>
+                </div>
+              </div>
+
+              {/* Spinner */}
+              <div style={{ display: 'flex', justifyContent: 'center', marginBottom: '20px' }}>
+                <div style={{
+                  width: '36px', height: '36px', borderRadius: '50%',
+                  border: '3px solid #e2e8f0', borderTopColor: '#3b82f6',
+                  animation: 'spin 0.9s linear infinite'
+                }} />
+              </div>
+
+              <button
+                onClick={() => setShowLoadingModal(false)}
+                style={{
+                  padding: '10px 24px', background: '#f1f5f9', border: '1px solid #cbd5e1',
+                  borderRadius: '8px', fontSize: '13.5px', fontWeight: '600', color: '#475569',
+                  cursor: 'pointer', transition: 'all 0.2s'
+                }}
+                onMouseOver={e => { e.target.style.background = '#e2e8f0'; }}
+                onMouseOut={e => { e.target.style.background = '#f1f5f9'; }}
+              >
+                Minimize to Background
+              </button>
+            </div>
+          </div>
+        );
+      })()}
     </div>
   )
 }

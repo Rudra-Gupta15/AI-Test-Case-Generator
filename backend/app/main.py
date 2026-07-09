@@ -130,9 +130,15 @@ async def update_user(
     
     if update_data:
         await db.users.update_one({"id": user_id}, {"$set": update_data})
-        user.update(update_data)
-        
-    return {"id": user["id"], "login_id": user["login_id"], "role": user.get("role", "user"), "is_active": user.get("is_active", True)}
+
+    # Re-fetch the updated user to return fresh data
+    updated_user = await db.users.find_one({"id": user_id})
+    return {
+        "id": updated_user["id"],
+        "login_id": updated_user["login_id"],
+        "role": updated_user.get("role", "user"),
+        "is_active": updated_user.get("is_active", True),
+    }
 
 
 @app.delete("/api/admin/users/{user_id}")
@@ -154,7 +160,7 @@ async def delete_user(
 # ═══════════════════════════════════════════════════════
 
 @app.post("/api/preview")
-async def preview_document(file: UploadFile = File(...)):
+def preview_document(file: UploadFile = File(...)):
     temp_dir = os.path.join(UPLOADS_DIR, "temp_previews")
     os.makedirs(temp_dir, exist_ok=True)
     temp_path = os.path.join(temp_dir, file.filename)
@@ -233,6 +239,7 @@ async def analyze(
         job_id, brd_path, fsd_path, srs_path, frd_path, image_paths,
         figma_url, token, project_url, deep,
         node_id=node_id,
+        ai_mode=ai_mode,
     )
     return {"job_id": job_id}
 
@@ -309,8 +316,10 @@ async def handle_chatbot(req: GenerateRequest, background_tasks: BackgroundTasks
     else:
         if not job.get("understanding"):
             raise HTTPException(400, "Run /api/analyze first — no understanding summary found for this job.")
+        job_ai_mode = job.get("ai_mode", "strict")
         background_tasks.add_task(
-            run_test_generation, req.job_id, job["understanding"], req.user_prompt, req.deep
+            run_test_generation, req.job_id, job["understanding"], req.user_prompt, req.deep,
+            ai_mode=job_ai_mode,
         )
         return {"action": "generate", "job_id": req.job_id}
 
@@ -324,12 +333,13 @@ class TestCaseEditRequest(BaseModel):
     prompt: str
     deep: bool = False
     selected_fields: Optional[List[str]] = None
+    ai_mode: str = "strict"
 
 
 @app.post("/api/generate/edit-test-case")
 async def edit_test_case_api(req: TestCaseEditRequest):
     from app.ollama_client import edit_single_test_case
-    result = await edit_single_test_case(req.test_case, req.prompt, req.deep, req.selected_fields)
+    result = await edit_single_test_case(req.test_case, req.prompt, req.deep, req.selected_fields, req.ai_mode)
     if "error" in result:
         raise HTTPException(500, result["error"])
     return result

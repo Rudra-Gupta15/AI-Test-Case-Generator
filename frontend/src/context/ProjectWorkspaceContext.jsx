@@ -204,14 +204,16 @@ export function ProjectWorkspaceProvider({ children }) {
 
   const loadProject = async (id) => {
     try {
-      const response = await fetch(`/api/projects/${id}`)
+      const token = localStorage.getItem('token');
+      const headers = token ? { 'Authorization': `Bearer ${token}` } : {};
+      const response = await fetch(`/api/projects/${id}`, { headers })
       if (response.ok) {
         const data = await response.json()
         const pName = projects.find(p => p.id === id)?.name || data.name || "Loaded Project";
         setJob({ ...data, name: pName, id })
         
         try {
-          const filesResponse = await fetch(`/api/projects/${id}/files`);
+          const filesResponse = await fetch(`/api/projects/${id}/files`, { headers });
           if (filesResponse.ok) {
             const filesData = await filesResponse.json();
             if (filesData.brd) setBrd(filesData.brd); else setBrd(null);
@@ -255,7 +257,11 @@ export function ProjectWorkspaceProvider({ children }) {
     });
     if (!result.isConfirmed) return;
     try {
-      const response = await fetch(`/api/projects/${id}`, { method: 'DELETE' });
+      const token = localStorage.getItem('token');
+      const response = await fetch(`/api/projects/${id}`, {
+        method: 'DELETE',
+        headers: token ? { 'Authorization': `Bearer ${token}` } : {}
+      });
       if (response.ok) {
         fetchProjects();
       } else {
@@ -364,6 +370,7 @@ export function ProjectWorkspaceProvider({ children }) {
           test_case: editingAITestCase,
           prompt: aiEditPrompt,
           deep: deep,
+          ai_mode: aiMode,
           selected_fields: aiSelectedParts.length > 0 ? aiSelectedParts : undefined
         })
       });
@@ -541,23 +548,40 @@ export function ProjectWorkspaceProvider({ children }) {
   const pollJob = (jobId) => {
     clearInterval(pollRef.current)
     pollRef.current = setInterval(async () => {
-      const res = await fetch(`/api/job/${jobId}`)
-      const data = await res.json()
-      setJob(data)
-      if (data.status === 'awaiting_prompt' || data.status === 'error' || (data.status === 'done' && data.test_report)) {
+      try {
+        const res = await fetch(`/api/job/${jobId}`)
+        if (!res.ok) {
+          // Job not found or server error — stop polling to avoid infinite loop
+          clearInterval(pollRef.current)
+          setSubmitting(false)
+          setGenerating(false)
+          if (res.status !== 404) {
+            setJob(prev => ({ ...prev, status: 'error', error: 'Server error while polling job.' }))
+          }
+          return
+        }
+        const data = await res.json()
+        setJob(data)
+        if (data.status === 'awaiting_prompt' || data.status === 'error' || (data.status === 'done' && data.test_report)) {
+          clearInterval(pollRef.current)
+          setSubmitting(false)
+          setGenerating(false)
+
+          if (data.status === 'awaiting_prompt') {
+            setStep(2)
+            setActiveTab('features')
+          } else if (data.status === 'done' && data.test_report) {
+            setStep(3)
+            setReportFilter('All')
+            setSearchQuery('')
+            setExpandedCases({})
+          }
+        }
+      } catch (e) {
+        // Network error — stop polling
         clearInterval(pollRef.current)
         setSubmitting(false)
         setGenerating(false)
-
-        if (data.status === 'awaiting_prompt') {
-          setStep(2)
-          setActiveTab('features')
-        } else if (data.status === 'done' && data.test_report) {
-          setStep(3)
-          setReportFilter('All')
-          setSearchQuery('')
-          setExpandedCases({})
-        }
       }
     }, 1500)
   }
@@ -613,6 +637,8 @@ export function ProjectWorkspaceProvider({ children }) {
     setFigmaToken('')
     setUserPrompt('')
     setStep(1)
+    setAiMode('strict')
+    setDeep(false)
   }
 
   const handleCreateProject = async () => {

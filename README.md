@@ -88,9 +88,12 @@ Open `http://localhost:5173` in your web browser.
 
 ## 📝 Configuration & Customization
 
-All server config options are in `backend/app/config.py`:
-* **Models**: Modify `DEFAULT_FAST_MODEL` and `DEFAULT_DEEP_MODEL` to swap Ollama models.
+All server config options are in `backend/app/config.py` and `backend/app/ollama_client.py`:
+* **Models**: Modify `DEFAULT_FAST_MODEL` and `DEFAULT_DEEP_MODEL` in `config.py` to swap Ollama models.
 * **Test Categories**: Update `DEFAULT_BASELINE_CATEGORIES` to change the standard quality categories generated.
+* **AI Modes (Temperature)**: The system supports two generation modes configurable in the UI:
+  - **Strict Mode** (Temperature `0.5`): Generates highly deterministic, consistent test cases matching standard business logic.
+  - **Creative Mode** (Temperature `0.9`): Explores broader edge cases and edge paths, helpful for exploratory testing scenarios.
 * **System Prompts**: Modify the core LLM instructions in `backend/app/ollama_client.py` (`UNDERSTAND_SYSTEM_PROMPT` and `TESTGEN_SYSTEM_PROMPT`).
 
 ---

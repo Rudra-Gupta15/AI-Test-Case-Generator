@@ -29,7 +29,7 @@ export default function ProjectWorkspaceLayout() {
             <span className="nav-icon">2</span>
             AI Analysis
           </Link>
-          <Link to={`/project/${job?.id || 'new'}/test-cases`} className={`nav-link-btn ${step === 3 ? 'active' : ''} ${'disabled'}`}>
+          <Link to={`/project/${job?.id || 'new'}/test-cases`} className={`nav-link-btn ${step === 3 ? 'active' : ''} ${!job?.test_report ? 'disabled' : ''}`}>
             <span className="nav-icon">3</span>
             Test Suite
           </Link>

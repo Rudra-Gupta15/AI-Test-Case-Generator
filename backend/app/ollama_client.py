@@ -197,7 +197,7 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
         # attach images to the last user message (Ollama multimodal format)
         messages[-1]["images"] = images_b64
 
-    options = {"temperature": 0.0, "seed": 42} if ai_mode == "strict" else {"temperature": 0.7}
+    options = {"temperature": 0.5, "seed": 42} if ai_mode == "strict" else {"temperature": 0.9}
 
     body = {
         "model": model,
@@ -211,7 +211,17 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
         resp = await client.post(f"{OLLAMA_BASE_URL}/api/chat", json=body)
         resp.raise_for_status()
         data = resp.json()
-        content = data.get("message", {}).get("content", "{}")
+        content = data.get("message", {}).get("content", "{}").strip()
+        
+        # Strip markdown fences if the model hallucinated them
+        if content.startswith("```json"):
+            content = content[7:]
+        elif content.startswith("```"):
+            content = content[3:]
+        if content.endswith("```"):
+            content = content[:-3]
+            
+        content = content.strip()
         return json.loads(content)
 
 
@@ -259,7 +269,7 @@ REFERENCE IMAGES: {len(image_paths)} image(s) attached for visual context.
                 images_b64.append(base64.b64encode(f.read()).decode("utf-8"))
 
     try:
-        return await _ollama_chat(messages, model, images_b64 or None)
+        return await _ollama_chat(messages, model, images_b64 or None, ai_mode=ai_mode)
     except Exception as e:
         print(f"======== AI ERROR - FAILED TO EXTRACT JSON ========")
         print(f"ERROR: {e}")
@@ -554,7 +564,7 @@ CRITICAL WRITING RULES:
 }
 """
 
-async def edit_single_test_case(test_case: dict, user_prompt: str, deep: bool = False, selected_fields: list = None):
+async def edit_single_test_case(test_case: dict, user_prompt: str, deep: bool = False, selected_fields: list = None, ai_mode: str = "strict"):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
     fields_restriction = ""
@@ -574,7 +584,7 @@ USER REQUEST (What to change):
     ]
 
     try:
-        return await _ollama_chat(messages, model)
+        return await _ollama_chat(messages, model, ai_mode=ai_mode)
     except Exception as e:
         return {"error": f"LLM unavailable: {str(e)[:150]}"}
 

@@ -49,6 +49,7 @@ async def run_analysis(
     project_url: Optional[str],
     deep: bool,
     node_id: Optional[str] = None,
+    ai_mode: Optional[str] = None,
 ):
     try:
         # ── Stage 1: Parse documents ──
@@ -97,7 +98,8 @@ async def run_analysis(
 
         # ── Stage 1b: LLM Understanding ──
         update_job(job_id, stage="understanding")
-        ai_mode = JOBS.get(job_id, {}).get("ai_mode", "strict")
+        # Use passed ai_mode; fall back to JOBS dict for backward compatibility
+        ai_mode = ai_mode or JOBS.get(job_id, {}).get("ai_mode", "strict")
         understanding = await ollama_client.understand(
             brd_text, fsd_text, srs_text, frd_text, figma_screens, image_paths, project_text, deep=deep, ai_mode=ai_mode
         )
@@ -202,13 +204,17 @@ async def run_test_generation(
     understanding: dict,
     user_prompt: str,
     deep: bool,
-    node_id: Optional[str] = None,   # ← NEW
+    node_id: Optional[str] = None,
+    ai_mode: Optional[str] = None,
 ):
     """Re-generate test cases with a custom user prompt (uses the same multi-stage pipeline)."""
     try:
+        # Use explicitly passed ai_mode, fallback to JOBS dict for backward compatibility
+        ai_mode = ai_mode or JOBS.get(job_id, {}).get("ai_mode", "strict")
+
         # ── Stage 2: Plan ──
         update_job(job_id, status="running", stage="planning_tests")
-        plan = await ollama_client.plan_test_cases(understanding, user_prompt, deep=deep)
+        plan = await ollama_client.plan_test_cases(understanding, user_prompt, deep=deep, ai_mode=ai_mode)
 
         if "error" in plan:
             update_job(job_id, status="error", stage="error", error=plan["error"])
@@ -238,7 +244,7 @@ async def run_test_generation(
         async def generate_feature_with_progress(fp):
             nonlocal completed_features
             async with sem:
-                cases = await ollama_client.generate_feature_test_cases(product_context, fp, deep=deep)
+                cases = await ollama_client.generate_feature_test_cases(product_context, fp, deep=deep, ai_mode=ai_mode)
             completed_features += 1
             update_job(
                 job_id,
@@ -260,7 +266,7 @@ async def run_test_generation(
 
         async def generate_baseline_with_sem(bp):
             async with sem:
-                return await ollama_client.generate_baseline_test_cases(product_context, bp, deep=deep)
+                return await ollama_client.generate_baseline_test_cases(product_context, bp, deep=deep, ai_mode=ai_mode)
 
         baseline_tasks = [generate_baseline_with_sem(bp) for bp in baseline_plans]
         baseline_results = await asyncio.gather(*baseline_tasks)
