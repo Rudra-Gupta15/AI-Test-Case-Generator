@@ -1172,6 +1172,30 @@ input[type="text"]:focus {
   border-color: #fde68a;
 }
 
+.source-badge-monochrome.website {
+  color: #2563eb;
+  background: #dbeafe;
+  border-color: #bfdbfe;
+}
+
+.source-badge-monochrome.brd {
+  color: #059669;
+  background: #d1fae5;
+  border-color: #a7f3d0;
+}
+
+.source-badge-monochrome.fsd {
+  color: #7c3aed;
+  background: #ede9fe;
+  border-color: #ddd6fe;
+}
+
+.source-badge-monochrome.figma {
+  color: #e11d48;
+  background: #ffe4e6;
+  border-color: #fecdd3;
+}
+
 
 .feature-card-monochrome:hover {
   border-color: #3b82f6;

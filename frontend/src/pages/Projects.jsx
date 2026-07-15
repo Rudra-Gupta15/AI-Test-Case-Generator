@@ -724,7 +724,7 @@ export default function Projects() {
                           <ResponsiveContainer width="100%" height="100%">
                             <BarChart data={[
                               {
-                                name: 'File Uploaded',
+                                name: 'Sources Provided',
                                 percent: Math.min(((projectStats?.file_uploaded || 0) / 10) * 100, 100),
                                 actual: projectStats?.file_uploaded || 0,
                                 target: 10,

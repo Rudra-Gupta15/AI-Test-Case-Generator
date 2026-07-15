@@ -23,10 +23,10 @@ You will receive:
 
 Your job: read everything and produce a structured understanding summary. Identify:
 1. Product type and one-line purpose
-2. Core features (list, each tied to its source: BRD|FSD|SRS|FRD|Figma|Image|Website). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small.
-3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation"). CRITICAL: List ALL user flows comprehensively.
-4. Inconsistencies or contradictions BETWEEN the documents (e.g. BRD mentions a feature with no FSD detail, or FSD describes a screen Figma doesn't have)
-5. Gaps — anything mentioned in one document but missing detail in another
+2. Core features (list, each tied to its source: BRD|FSD|SRS|FRD|Figma|Image|Website). CRITICAL: You MUST extract EVERY SINGLE feature mentioned in the input documents. Do not summarize or skip any features, no matter how small. If analyzing a generic website or landing page, treat its main navigation links, page sections, dropdown menus, and contact forms as core features to be tested.
+3. User flows identified (e.g. "Checkout flow: Cart -> Address -> Payment -> Confirmation" or "Navigation flow: Home -> Services -> Contact"). CRITICAL: List ALL user flows comprehensively.
+4. Inconsistencies or contradictions within the provided content. CRITICAL: DO NOT report the absence of uploaded documents (e.g. 'No BRD provided', 'Figma missing', 'No formal requirements') as an inconsistency or gap. It is a personal choice not to upload them. Only analyze the content actually provided.
+5. Gaps — missing details or logical flaws within the provided content (e.g., missing CTAs, undefined navigation paths, incomplete user flows). DO NOT say 'Gap: Formal requirement documentation missing'. Focus ONLY on the actual product features.
 
 Respond ONLY with valid JSON, no markdown fences, no preamble, in this exact shape:
 {

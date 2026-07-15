@@ -59,12 +59,12 @@ async def _get_mock_user_with_retry(db):
     for attempt in range(3):
         try:
             user_dict = await db.users.find_one()
-            return User(**user_dict) if user_dict else User(id="mock", login_id="mock", role="admin")
+            return User(**user_dict) if user_dict else User(id="mock", login_id="mock", password_hash="mock", role="admin")
         except Exception:
             if attempt < 2:
                 await asyncio.sleep(0.5)
             else:
-                return User(id="mock", login_id="mock", role="admin")
+                return User(id="mock", login_id="mock", password_hash="mock", role="admin")
 
 async def get_current_user(
     credentials: Optional[HTTPAuthorizationCredentials] = Depends(bearer_scheme),

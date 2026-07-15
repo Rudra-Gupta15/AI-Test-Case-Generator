@@ -683,6 +683,12 @@ async def get_project_stats(
     job_dir = os.path.join(UPLOADS_DIR, project_id)
     if os.path.exists(job_dir):
         uploaded_files_count = len([f for f in os.listdir(job_dir) if os.path.isfile(os.path.join(job_dir, f))])
+    
+    if project.get("project_url"):
+        uploaded_files_count += 1
+    if project.get("github_url"):
+        uploaded_files_count += 1
+
 
     tree_nodes = await db.tree_nodes.find({"project_id": project_id}).to_list(length=10000)
 

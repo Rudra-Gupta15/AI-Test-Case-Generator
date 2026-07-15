@@ -112,6 +112,8 @@ export default function LegacyWorkspace() {
     switch (stage) {
       case 'parsing_documents':
         return { percent: 15, est: 'Est. remaining: ~2 min' }
+      case 'crawling_website':
+        return { percent: 22, est: 'Crawling website pages...' }
       case 'fetching_figma':
         return { percent: 25, est: 'Est. remaining: ~1.5 min' }
       case 'understanding':
@@ -1583,14 +1585,14 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <div className="sleek-inputs-row" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div className="sleek-input-group">
                           <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Figma File URL</label>
-                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: figmaUrl ? '1px solid #10b981' : undefined, background: figmaUrl ? '#f0fdf4' : undefined }}>
                             <span style={{ position: 'absolute', left: '16px', color: '#F24E1E', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-brands fa-figma"></i></span>
                             <input type="text" autoComplete="off" value={figmaUrl} onChange={(e) => setFigmaUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://www.figma.com/file/..." />
                           </div>
                         </div>
                         <div className="sleek-input-group">
                           <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Figma API Token</label>
-                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: figmaToken ? '1px solid #10b981' : undefined, background: figmaToken ? '#f0fdf4' : undefined }}>
                             <span style={{ position: 'absolute', left: '16px', color: '#eab308', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-key"></i></span>
                             <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 48px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="Enter your Figma API token" />
                             <button type="button" className="sleek-icon-btn" style={{ position: 'absolute', right: '12px', border: 'none', background: 'transparent', width: 'auto', display: 'flex', alignItems: 'center', justifyContent: 'center', padding: '4px', cursor: 'pointer' }} onClick={() => setShowFigmaToken(!showFigmaToken)} title={showFigmaToken ? "Hide Token" : "Show Token"}>
@@ -1613,7 +1615,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                       <div className="sleek-inputs-row" style={{ display: 'flex', flexDirection: 'column', gap: '20px' }}>
                         <div className="sleek-input-group">
                           <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>GitHub Repository URL</label>
-                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: githubUrl ? '1px solid #10b981' : undefined, background: githubUrl ? '#f0fdf4' : undefined }}>
                             <span style={{ position: 'absolute', left: '16px', color: '#3b82f6', fontSize: '18px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}>
                               <i className="fa-brands fa-github"></i>
                             </span>
@@ -1622,7 +1624,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                         </div>
                         <div className="sleek-input-group">
                           <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Deployed Project URL</label>
-                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                          <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: projectUrl ? '1px solid #10b981' : undefined, background: projectUrl ? '#f0fdf4' : undefined }}>
                             <span style={{ position: 'absolute', left: '16px', color: '#14b8a6', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-globe"></i></span>
                             <input type="text" value={projectUrl} onChange={(e) => setProjectUrl(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 16px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="https://your-deployed-app.com" />
                           </div>
@@ -1636,7 +1638,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                             <span style={{ fontSize: '11px', fontWeight: '400', color: '#94a3b8', marginLeft: '4px' }}>Optional — for login-protected sites</span>
                           </label>
                           <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: siteUsername ? '1px solid #10b981' : undefined, background: siteUsername ? '#f0fdf4' : undefined }}>
                               <span style={{ position: 'absolute', left: '16px', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-user"></i></span>
                               <input
                                 type="text"
@@ -1647,7 +1649,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 autoComplete="off"
                               />
                             </div>
-                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center' }}>
+                            <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: sitePassword ? '1px solid #10b981' : undefined, background: sitePassword ? '#f0fdf4' : undefined }}>
                               <span style={{ position: 'absolute', left: '16px', color: '#6366f1', fontSize: '15px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-lock"></i></span>
                               <input
                                 type={showSitePassword ? 'text' : 'password'}

@@ -37,6 +37,93 @@ async def _persist_to_node(node_id: str, understanding: dict, report: dict) -> N
         print(f"[pipeline] Warning: failed to persist to node {node_id}: {exc}")
 
 
+async def _crawl_website(base_url: str, max_pages: int = 10) -> str:
+    """
+    Crawl a website starting from base_url, discovering internal links and
+    scraping each page.  Returns a single combined text block labelled by page,
+    so the LLM can understand multi-page structure and build navigation user flows.
+    """
+    import requests
+    from urllib.parse import urljoin, urlparse
+    from bs4 import BeautifulSoup
+
+    parsed_base = urlparse(base_url)
+    base_domain = parsed_base.netloc
+    headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
+
+    def is_internal(url: str) -> bool:
+        p = urlparse(url)
+        return (p.netloc == "" or p.netloc == base_domain) and not url.startswith("mailto:") and not url.startswith("tel:")
+
+    def get_page_label(url: str) -> str:
+        path = urlparse(url).path.rstrip("/")
+        if not path or path == "/":
+            return "Home Page"
+        parts = [p for p in path.split("/") if p]
+        return " / ".join(p.replace("-", " ").replace("_", " ").title() for p in parts) + " Page"
+
+    visited = set()
+    to_visit = [base_url]
+    page_contents = []
+
+    print(f"======== WEBSITE CRAWLER STARTED: {base_url} ========")
+
+    while to_visit and len(visited) < max_pages:
+        url = to_visit.pop(0)
+        if url in visited:
+            continue
+        visited.add(url)
+
+        label = get_page_label(url)
+        print(f"  [Crawling] {label}: {url}")
+
+        try:
+            # Step 1: fetch raw HTML to extract links
+            raw_resp = await asyncio.to_thread(
+                requests.get, url, headers=headers, timeout=15
+            )
+            if raw_resp.status_code != 200:
+                print(f"  [Skip] {url} → HTTP {raw_resp.status_code}")
+                continue
+
+            soup = BeautifulSoup(raw_resp.text, "html.parser")
+
+            # Discover internal links on this page
+            for tag in soup.find_all("a", href=True):
+                href = tag["href"].strip()
+                # Skip anchors, javascript, and external
+                if href.startswith("#") or href.lower().startswith("javascript"):
+                    continue
+                full_url = urljoin(url, href).split("#")[0]  # strip fragment
+                if is_internal(full_url) and full_url not in visited and full_url not in to_visit:
+                    to_visit.append(full_url)
+
+            # Step 2: get clean readable text via Jina reader
+            jina_url = f"https://r.jina.ai/{url}"
+            jina_resp = await asyncio.to_thread(
+                requests.get, jina_url, headers=headers, timeout=20
+            )
+            if jina_resp.status_code == 200:
+                page_text = doc_parser.truncate_for_llm(jina_resp.text, max_chars=3000)
+                page_contents.append(f"=== PAGE: {label} (URL: {url}) ===\n{page_text}")
+                print(f"  [OK] {label}: {len(jina_resp.text)} chars scraped")
+            else:
+                page_contents.append(f"=== PAGE: {label} (URL: {url}) ===\n[Failed to read content]")
+
+        except Exception as e:
+            page_contents.append(f"=== PAGE: {label} (URL: {url}) ===\n[Error: {str(e)[:100]}]")
+            print(f"  [Error] {url}: {e}")
+
+    print(f"======== CRAWLER DONE: visited {len(visited)} pages ========")
+
+    if not page_contents:
+        return f"[Failed to crawl {base_url}]"
+
+    combined = "\n\n".join(page_contents)
+    print(f"======== TOTAL CRAWLED TEXT: {len(combined)} chars ========")
+    return combined
+
+
 async def run_analysis(
     job_id: str,
     brd_path: Optional[str],
@@ -79,22 +166,8 @@ async def run_analysis(
 
         project_text = ""
         if project_url:
-            update_job(job_id, status="running", stage="parsing_documents")
-            try:
-                import requests
-                jina_url = f"https://r.jina.ai/{project_url.strip()}"
-                print(f"======== WEB SCRAPER TRIGGERED: {jina_url} ========")
-                headers = {"User-Agent": "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36"}
-                resp = requests.get(jina_url, headers=headers, timeout=25)
-                print(f"======== SCRAPER STATUS CODE: {resp.status_code} ========")
-                if resp.status_code == 200:
-                    project_text = doc_parser.truncate_for_llm(resp.text)
-                    print(f"======== SCRAPER SUCCESS: FETCHED {len(resp.text)} chars, TRUNCATED TO {len(project_text)} chars ========")
-                else:
-                    project_text = f"[Failed to scrape {project_url}: HTTP {resp.status_code} - {resp.text[:100]}]"
-            except Exception as e:
-                project_text = f"[Failed to scrape {project_url}: {str(e)}]"
-                print(f"======== SCRAPER EXCEPTION: {str(e)} ========")
+            update_job(job_id, status="running", stage="crawling_website")
+            project_text = await _crawl_website(project_url.strip())
 
         # ── Stage 1b: LLM Understanding ──
         update_job(job_id, stage="understanding")
