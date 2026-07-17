@@ -489,82 +489,161 @@ export default function LegacyWorkspace() {
     }
   };
 
-  const executeSelectedTestCases = () => {
+  const executeSelectedTestCases = async () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
       Swal.fire({
-      title: "Warning",
-      text: "Please select at least one test case to execute.",
-      icon: "warning",
-      confirmButtonText: "OK",
-      confirmButtonColor: "#10b981"
-    });
+        title: "Warning",
+        text: "Please select at least one test case to execute.",
+        icon: "warning",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#10b981"
+      });
       return;
     }
 
-    setJob((prev) => {
-      if (!prev?.test_report?.test_cases) return prev;
-      const newCases = prev.test_report.test_cases.map(tc => {
-        if (selectedTestCases[tc.id]) {
-          const passed = Math.random() > 0.15;
-          return {
-            ...tc,
-            status: passed ? 'Pass' : 'Fail',
-            actual_result: passed ? 'Executed successfully as expected.' : 'Execution failed. Error encountered.',
-            executed_by: 'Automation Runner'
-          };
-        }
-        return tc;
+    if (!projectUrl) {
+      Swal.fire({
+        title: "Missing Project URL",
+        text: "Please provide a Deployed Project URL in the right panel to run live tests.",
+        icon: 'warning',
+        confirmButtonText: 'OK'
       });
-      return {
-        ...prev,
-        test_report: {
-          ...prev.test_report,
-          test_cases: newCases
-        }
-      }
+      return;
+    }
+
+    Swal.fire({
+      title: 'Executing Live Tests...',
+      text: 'Starting Playwright AI engine in the background...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
     });
 
-    setSelectedTestCases({});
-    Swal.fire({
-      title: "Success",
-      text: `Successfully executed ${selectedIds.length} test case(s)!`,
-      icon: "success",
-      confirmButtonText: "OK",
-      confirmButtonColor: "#10b981"
-    });
+    try {
+      const testCasesToRun = job.test_report.test_cases.filter(tc => selectedTestCases[tc.id]);
+      const token = localStorage.getItem('token');
+      const headers = { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      for (const tc of testCasesToRun) {
+        Swal.update({ text: `Executing ${tc.id}...` });
+        
+        const response = await fetch('/api/execute_test_case', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            test_case: tc,
+            target_url: projectUrl
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Execution failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const updatedTc = data.test_case;
+        
+        setJob((prev) => {
+          if (!prev?.test_report?.test_cases) return prev;
+          const newCases = prev.test_report.test_cases.map(existingTc => 
+            existingTc.id === tc.id ? updatedTc : existingTc
+          );
+          return {
+            ...prev,
+            test_report: { ...prev.test_report, test_cases: newCases }
+          };
+        });
+      }
+      
+      setSelectedTestCases({});
+      Swal.fire({
+        title: "Success",
+        text: `Successfully executed ${selectedIds.length} test case(s)!`,
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#10b981"
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        title: "Execution Error",
+        text: err.message,
+        icon: 'error'
+      });
+    }
   };
 
-  const executeSingleTestCase = (tcId) => {
-    setJob((prev) => {
-      if (!prev?.test_report?.test_cases) return prev;
-      const newCases = prev.test_report.test_cases.map(tc => {
-        if (tc.id === tcId) {
-          const passed = Math.random() > 0.15;
-          return {
-            ...tc,
-            status: passed ? 'Pass' : 'Fail',
-            actual_result: passed ? 'Executed successfully as expected.' : 'Execution failed. Error encountered.',
-            executed_by: 'Automation Runner'
-          };
-        }
-        return tc;
+  const executeSingleTestCase = async (tcId) => {
+    if (!projectUrl) {
+      Swal.fire({
+        title: "Missing Project URL",
+        text: "Please provide a Deployed Project URL in the right panel to run live tests.",
+        icon: 'warning',
+        confirmButtonText: 'OK'
       });
-      return {
-        ...prev,
-        test_report: {
-          ...prev.test_report,
-          test_cases: newCases
-        }
-      }
-    });
+      return;
+    }
+
     Swal.fire({
-      title: "Success",
-      text: "Successfully executed 1 test case!",
-      icon: "success",
-      confirmButtonText: "OK",
-      confirmButtonColor: "#10b981"
+      title: 'Executing Live Test...',
+      text: `Starting Playwright AI engine for ${tcId}...`,
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
     });
+
+    try {
+      const tc = job.test_report.test_cases.find(t => t.id === tcId);
+      if (!tc) throw new Error("Test case not found");
+
+      const token = localStorage.getItem('token');
+      const response = await fetch('/api/execute_test_case', {
+        method: 'POST',
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+        },
+        body: JSON.stringify({
+          test_case: tc,
+          target_url: projectUrl
+        })
+      });
+
+      if (!response.ok) {
+        throw new Error(`Execution failed with status ${response.status}`);
+      }
+      
+      const data = await response.json();
+      const updatedTc = data.test_case;
+      
+      setJob((prev) => {
+        if (!prev?.test_report?.test_cases) return prev;
+        const newCases = prev.test_report.test_cases.map(existingTc => 
+          existingTc.id === tcId ? updatedTc : existingTc
+        );
+        return {
+          ...prev,
+          test_report: { ...prev.test_report, test_cases: newCases }
+        };
+      });
+
+      Swal.fire({
+        title: "Success",
+        text: "Successfully executed 1 test case!",
+        icon: "success",
+        confirmButtonText: "OK",
+        confirmButtonColor: "#10b981"
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        title: "Execution Error",
+        text: err.message,
+        icon: 'error'
+      });
+    }
   };
 
   const saveProject = async () => {
@@ -577,7 +656,11 @@ export default function LegacyWorkspace() {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ job_id: job.id }),
+        body: JSON.stringify({ 
+          job_id: job.id,
+          test_report: job.test_report,
+          understanding: job.understanding,
+        }),
       })
       if (response.ok) {
         Swal.fire({
@@ -1993,30 +2076,55 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
               <div>
                 <h2>3. Test Case Suite</h2>
                 <p>Execute, filter, or copy your generated test plan.</p>
+                <p style={{ fontSize: '12px', color: '#94a3b8', marginTop: '4px', display: 'flex', alignItems: 'center', gap: '6px' }}>
+                  <span>💡</span>
+                  <span>Scroll table: <kbd style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 5px', fontSize: '11px', fontFamily: 'monospace' }}>↕ Wheel</kbd> vertical &nbsp;·&nbsp; <kbd style={{ background: '#f1f5f9', border: '1px solid #cbd5e1', borderRadius: '4px', padding: '1px 5px', fontSize: '11px', fontFamily: 'monospace' }}>Shift + Wheel</kbd> horizontal</span>
+                </p>
               </div>
-              <div className="header-metrics-row" style={{ flex: 1, display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
-                <div style={{ background: '#0f172a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total</span>
-                  <strong style={{ color: 'white' }}>{totalCount}</strong>
+              <div style={{ display: 'flex', flexDirection: 'column', gap: '8px', alignItems: 'flex-end', flex: 1 }}>
+                <div className="header-metrics-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <div style={{ background: '#0f172a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total</span>
+                    <strong style={{ color: 'white' }}>{totalCount}</strong>
+                  </div>
+                  <div style={{ background: '#dc2626', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>P0</span>
+                    <strong style={{ color: 'white' }}>{p0Count}</strong>
+                  </div>
+                  <div style={{ background: '#ea580c', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>P1</span>
+                    <strong style={{ color: 'white' }}>{p1Count}</strong>
+                  </div>
+                  <div style={{ background: '#16a34a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>P2</span>
+                    <strong style={{ color: 'white' }}>{p2Count}</strong>
+                  </div>
+                  <div style={{ background: '#2563eb', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>P3</span>
+                    <strong style={{ color: 'white' }}>{p3Count}</strong>
+                  </div>
                 </div>
-                <div style={{ background: '#dc2626', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P0</span>
-                  <strong style={{ color: 'white' }}>{p0Count}</strong>
+                
+                <div className="header-metrics-row" style={{ display: 'flex', flexWrap: 'wrap', gap: '8px', alignItems: 'center', justifyContent: 'flex-end' }}>
+                  <div style={{ background: '#16a34a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total Pass</span>
+                    <strong style={{ color: 'white' }}>
+                      {job?.test_report?.test_cases?.filter(tc => tc.status?.toLowerCase() === 'pass').length || 0}
+                    </strong>
+                  </div>
+                  <div style={{ background: '#dc2626', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total Fail</span>
+                    <strong style={{ color: 'white' }}>
+                      {job?.test_report?.test_cases?.filter(tc => tc.status?.toLowerCase() === 'fail').length || 0}
+                    </strong>
+                  </div>
+                  <div style={{ background: '#475569', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                    <span style={{ color: 'rgba(255,255,255,0.8)' }}>Total Pending</span>
+                    <strong style={{ color: 'white' }}>
+                      {(job?.test_report?.test_cases?.length || 0) - (job?.test_report?.test_cases?.filter(tc => tc.status?.toLowerCase() === 'pass' || tc.status?.toLowerCase() === 'fail').length || 0)}
+                    </strong>
+                  </div>
                 </div>
-                <div style={{ background: '#ea580c', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P1</span>
-                  <strong style={{ color: 'white' }}>{p1Count}</strong>
-                </div>
-                <div style={{ background: '#16a34a', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P2</span>
-                  <strong style={{ color: 'white' }}>{p2Count}</strong>
-                </div>
-                <div style={{ background: '#2563eb', border: 'none', borderRadius: '6px', padding: '6px 12px', display: 'flex', gap: '8px', alignItems: 'center', fontSize: '14px', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
-                  <span style={{ color: 'rgba(255,255,255,0.8)' }}>P3</span>
-                  <strong style={{ color: 'white' }}>{p3Count}</strong>
-                </div>
-
-                {/* Execute and Save buttons moved to the filter bar below */}
               </div>
             </div>
 
@@ -2040,6 +2148,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                     />
                     <i className="fa-solid fa-magnifying-glass" style={{ color: '#06b6d4', fontSize: '16px', marginLeft: '12px' }}></i>
                   </div>
+                  
                   <button
                     onClick={() => {
                       const allSelected = cases.every(tc => selectedTestCases[tc.id]);
@@ -2104,7 +2213,31 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
 
                     return sections.map((sectionName) => (
                       <div key={sectionName} className="test-case-table-section">
-                        <h3 className="section-group-title-orange">{sectionName}</h3>
+                        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+                          <h3 className="section-group-title-orange" style={{ margin: 0 }}>{sectionName}</h3>
+                          
+                          {/* Status metrics boxes for this section */}
+                          <div style={{ display: 'flex', gap: '8px' }}>
+                            <div style={{ background: '#f0fdf4', border: '1px solid #4ade80', borderRadius: '6px', height: '32px', padding: '0 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#16a34a', fontWeight: '500', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                              <span>Pass</span>
+                              <strong style={{ fontWeight: 'bold' }}>
+                                {casesBySection[sectionName]?.filter(tc => tc.status?.toLowerCase() === 'pass').length || 0}
+                              </strong>
+                            </div>
+                            <div style={{ background: '#fef2f2', border: '1px solid #fca5a5', borderRadius: '6px', height: '32px', padding: '0 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#dc2626', fontWeight: '500', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                              <span>Fail</span>
+                              <strong style={{ fontWeight: 'bold' }}>
+                                {casesBySection[sectionName]?.filter(tc => tc.status?.toLowerCase() === 'fail').length || 0}
+                              </strong>
+                            </div>
+                            <div style={{ background: '#f8fafc', border: '1px solid #cbd5e1', borderRadius: '6px', height: '32px', padding: '0 12px', display: 'flex', alignItems: 'center', gap: '6px', fontSize: '13px', color: '#475569', fontWeight: '500', boxShadow: '0 1px 2px rgba(0, 0, 0, 0.05)' }}>
+                              <span>Pending</span>
+                              <strong style={{ fontWeight: 'bold' }}>
+                                {(casesBySection[sectionName]?.length || 0) - (casesBySection[sectionName]?.filter(tc => tc.status?.toLowerCase() === 'pass' || tc.status?.toLowerCase() === 'fail').length || 0)}
+                              </strong>
+                            </div>
+                          </div>
+                        </div>
                         <div className="test-suite-table-container">
                           <table className="test-suite-table">
                             <thead>

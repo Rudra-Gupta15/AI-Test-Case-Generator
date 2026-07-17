@@ -223,7 +223,7 @@ async def run_analysis(
         feature_plans = plan.get("plan", [])
         total_features = len(feature_plans)
         completed_features = 0
-        sem = asyncio.Semaphore(5)
+        sem = asyncio.Semaphore(2)  # Reduced from 5 to prevent LLM overloading/thrashing
 
         async def generate_feature_with_progress(fp):
             nonlocal completed_features

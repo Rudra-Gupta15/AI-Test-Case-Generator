@@ -1067,3 +1067,24 @@ async def suggest_structure(
         "node_type": node.get("node_type"),
         "suggestions": suggestions,
     }
+
+from app.live_executor import execute_test_case_live
+
+class ExecuteTestCaseRequest(BaseModel):
+    test_case: dict
+    target_url: str
+
+@app.post("/api/execute_test_case")
+async def api_execute_test_case(
+    req: ExecuteTestCaseRequest,
+    current_user: User = Depends(get_current_user),
+):
+    try:
+        updated_test_case, logs = await execute_test_case_live(req.test_case, req.target_url)
+        return {
+            "success": True,
+            "test_case": updated_test_case,
+            "logs": logs
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=str(e))

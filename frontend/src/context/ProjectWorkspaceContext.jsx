@@ -440,46 +440,88 @@ export function ProjectWorkspaceProvider({ children }) {
     }
   };
 
-  const executeSelectedTestCases = () => {
+  const executeSelectedTestCases = async () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
       Swal.fire({
-      title: "Please select at least one test case to execute.",
-      icon: 'info',
-      confirmButtonText: 'OK'
-    });
+        title: "Please select at least one test case to execute.",
+        icon: 'info',
+        confirmButtonText: 'OK'
+      });
       return;
     }
 
-    setJob((prev) => {
-      if (!prev?.test_report?.test_cases) return prev;
-      const newCases = prev.test_report.test_cases.map(tc => {
-        if (selectedTestCases[tc.id]) {
-          const passed = Math.random() > 0.15;
-          return {
-            ...tc,
-            status: passed ? 'Pass' : 'Fail',
-            actual_result: passed ? 'Executed successfully as expected.' : 'Execution failed. Error encountered.',
-            executed_by: 'Automation Runner'
-          };
-        }
-        return tc;
+    if (!projectUrl) {
+      Swal.fire({
+        title: "Missing Project URL",
+        text: "Please provide a Deployed Project URL in the right panel to run live tests.",
+        icon: 'warning',
+        confirmButtonText: 'OK'
       });
-      return {
-        ...prev,
-        test_report: {
-          ...prev.test_report,
-          test_cases: newCases
-        }
-      };
-    });
-    
-    setSelectedTestCases({});
+      return;
+    }
+
     Swal.fire({
-      title: `Successfully executed ${selectedIds.length} test cases!`,
-      icon: 'info',
-      confirmButtonText: 'OK'
+      title: 'Executing Live Tests...',
+      text: 'Starting Playwright AI engine in the background...',
+      allowOutsideClick: false,
+      didOpen: () => Swal.showLoading()
     });
+
+    try {
+      const testCasesToRun = job.test_report.test_cases.filter(tc => selectedTestCases[tc.id]);
+      const token = localStorage.getItem('token');
+      const headers = { 
+        'Content-Type': 'application/json',
+        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
+      };
+      
+      for (const tc of testCasesToRun) {
+        Swal.update({ text: `Executing ${tc.id}...` });
+        
+        const response = await fetch('/api/execute_test_case', {
+          method: 'POST',
+          headers,
+          body: JSON.stringify({
+            test_case: tc,
+            target_url: projectUrl
+          })
+        });
+
+        if (!response.ok) {
+          throw new Error(`Execution failed with status ${response.status}`);
+        }
+        
+        const data = await response.json();
+        const updatedTc = data.test_case;
+        
+        // Update job state incrementally
+        setJob((prev) => {
+          if (!prev?.test_report?.test_cases) return prev;
+          const newCases = prev.test_report.test_cases.map(existingTc => 
+            existingTc.id === tc.id ? updatedTc : existingTc
+          );
+          return {
+            ...prev,
+            test_report: { ...prev.test_report, test_cases: newCases }
+          };
+        });
+      }
+      
+      setSelectedTestCases({});
+      Swal.fire({
+        title: `Successfully executed ${selectedIds.length} test cases!`,
+        icon: 'success',
+        confirmButtonText: 'OK'
+      });
+    } catch (err) {
+      console.error(err);
+      Swal.fire({
+        title: "Execution Error",
+        text: err.message,
+        icon: 'error'
+      });
+    }
   };
 
   const saveProject = async () => {

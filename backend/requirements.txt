@@ -12,3 +12,4 @@ bcrypt==4.0.1
 python-jose[cryptography]==3.3.0
 beautifulsoup4==4.15.0
 requests==2.34.2
+playwright==1.47.0
