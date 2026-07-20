@@ -228,7 +228,7 @@ async def _ollama_chat(messages: list, model: str, images_b64: list[str] | None 
 # ──────────────────────────────────────────────────────────────────────
 # Stage 1: UNDERSTAND  (unchanged)
 # ──────────────────────────────────────────────────────────────────────
-async def understand(brd_text: str, fsd_text: str, srs_text: str, frd_text: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False, ai_mode: str = "strict"):
+async def understand(brd_text: str, fsd_text: str, other_doc_text: str, other_doc_type: str, figma_screens: list, image_paths: list[str], project_text: str = "", deep: bool = False, ai_mode: str = "strict"):
     model = DEFAULT_DEEP_MODEL if deep else DEFAULT_FAST_MODEL
 
     figma_text = "\n".join([
@@ -242,11 +242,8 @@ async def understand(brd_text: str, fsd_text: str, srs_text: str, frd_text: str,
 FSD:
 {fsd_text or '[No FSD provided]'}
 
-SRS (Software Requirements Specification):
-{srs_text or '[No SRS provided]'}
-
-FRD (Functional Requirements Document):
-{frd_text or '[No FRD provided]'}
+{other_doc_type or 'Other Document'}:
+{other_doc_text or '[No additional document provided]'}
 
 Figma Design Info:
 {figma_text or '[No Figma screens found]'}
@@ -363,11 +360,8 @@ BRD:
 FSD:
 {product_context.get('fsd_text', '')[:5000]}
 
-SRS:
-{product_context.get('srs_text', '')[:5000]}
-
-FRD:
-{product_context.get('frd_text', '')[:5000]}
+{product_context.get('other_doc_type', 'Other Document')}:
+{product_context.get('other_doc_text', '')[:5000]}
 """
 
     messages = [

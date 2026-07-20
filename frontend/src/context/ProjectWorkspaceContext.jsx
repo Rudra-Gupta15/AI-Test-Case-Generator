@@ -1,7 +1,8 @@
 import Swal from 'sweetalert2';
-import React, { createContext, useContext, useState, useRef, useEffect } from 'react';
+import React, { createContext, useContext, useState, useRef, useEffect, useCallback } from 'react';
 import { useNavigate, useParams } from 'react-router-dom';
 import { useAuth } from './AuthContext.jsx';
+import HumanInputModal from '../components/common/HumanInputModal.jsx';
 
 const ProjectWorkspaceContext = createContext();
 
@@ -30,7 +31,7 @@ export function ProjectWorkspaceProvider({ children }) {
   const [fsd, setFsd] = useState(null)
   const [images, setImages] = useState([])
   const [figmaUrl, setFigmaUrl] = useState('')
-  const [figmaToken, setFigmaToken] = useState('')
+  const [figmaToken, setFigmaToken] = useState(() => localStorage.getItem('figmaToken') || '')
   const [showFigmaToken, setShowFigmaToken] = useState(false)
   const [srs, setSrs] = useState(null)
   const [frd, setFrd] = useState(null)
@@ -56,6 +57,8 @@ export function ProjectWorkspaceProvider({ children }) {
   const [createProjectName, setCreateProjectName] = useState('')
   const [elapsedTime, setElapsedTime] = useState(0)
   const pollRef = useRef(null)
+  // HITL (Human-in-the-Loop) modal state
+  const [hitlModal, setHitlModal] = useState(null) // { executionId, hitlInfo }
 
   const handleCellEdit = (tcId, field, value) => {
     setJob((prev) => {
@@ -75,6 +78,14 @@ export function ProjectWorkspaceProvider({ children }) {
       }
     })
   }
+
+  useEffect(() => {
+    if (figmaToken) {
+      localStorage.setItem('figmaToken', figmaToken);
+    } else {
+      localStorage.removeItem('figmaToken');
+    }
+  }, [figmaToken]);
 
   useEffect(() => {
     let interval
@@ -443,85 +454,102 @@ export function ProjectWorkspaceProvider({ children }) {
   const executeSelectedTestCases = async () => {
     const selectedIds = Object.keys(selectedTestCases).filter(id => selectedTestCases[id]);
     if (selectedIds.length === 0) {
-      Swal.fire({
-        title: "Please select at least one test case to execute.",
-        icon: 'info',
-        confirmButtonText: 'OK'
-      });
+      Swal.fire({ title: "Please select at least one test case to execute.", icon: 'info', confirmButtonText: 'OK' });
       return;
     }
-
     if (!projectUrl) {
-      Swal.fire({
-        title: "Missing Project URL",
-        text: "Please provide a Deployed Project URL in the right panel to run live tests.",
-        icon: 'warning',
-        confirmButtonText: 'OK'
-      });
+      Swal.fire({ title: "Missing Project URL", text: "Please provide a Deployed Project URL in the right panel to run live tests.", icon: 'warning', confirmButtonText: 'OK' });
       return;
     }
 
-    Swal.fire({
-      title: 'Executing Live Tests...',
-      text: 'Starting Playwright AI engine in the background...',
-      allowOutsideClick: false,
-      didOpen: () => Swal.showLoading()
-    });
+    const testCasesToRun = job.test_report.test_cases.filter(tc => selectedTestCases[tc.id]);
+    const authToken = localStorage.getItem('token');
+    const headers = { 'Content-Type': 'application/json', ...(authToken ? { 'Authorization': `Bearer ${authToken}` } : {}) };
+    let successCount = 0;
 
-    try {
-      const testCasesToRun = job.test_report.test_cases.filter(tc => selectedTestCases[tc.id]);
-      const token = localStorage.getItem('token');
-      const headers = { 
-        'Content-Type': 'application/json',
-        ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-      };
-      
-      for (const tc of testCasesToRun) {
-        Swal.update({ text: `Executing ${tc.id}...` });
-        
-        const response = await fetch('/api/execute_test_case', {
-          method: 'POST',
-          headers,
-          body: JSON.stringify({
-            test_case: tc,
-            target_url: projectUrl
-          })
+    for (const tc of testCasesToRun) {
+      const executionId = `exec_${tc.id}_${Date.now()}`;
+
+      // 1. Start execution (non-blocking — backend runs it in background)
+      Swal.fire({ title: `Starting: ${tc.id}`, text: 'Launching Playwright AI engine...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+      try {
+        const startRes = await fetch('/api/execute_test_case', {
+          method: 'POST', headers,
+          body: JSON.stringify({ test_case: tc, target_url: projectUrl, execution_id: executionId, site_username: siteUsername, site_password: sitePassword })
         });
+        if (!startRes.ok) throw new Error(`Failed to start execution (${startRes.status})`);
+      } catch (err) {
+        Swal.fire({ title: 'Execution Error', text: err.message, icon: 'error' });
+        continue;
+      }
 
-        if (!response.ok) {
-          throw new Error(`Execution failed with status ${response.status}`);
+      // 2. Poll for status
+      let done = false;
+      let skipped = false;
+      while (!done) {
+        await new Promise(r => setTimeout(r, 2000)); // poll every 2s
+        let statusData;
+        try {
+          const statusRes = await fetch(`/api/execution_status/${executionId}`, { headers });
+          if (!statusRes.ok) { done = true; break; }
+          statusData = await statusRes.json();
+        } catch {
+          done = true; break;
         }
-        
-        const data = await response.json();
-        const updatedTc = data.test_case;
-        
-        // Update job state incrementally
-        setJob((prev) => {
+
+        if (statusData.status === 'waiting_for_human') {
+          // Show HITL modal — close Swal loading first
+          Swal.close();
+          // Set modal state; wait for it to be dismissed via onContinue or onSkip
+          await new Promise(resolve => {
+            setHitlModal({
+              executionId,
+              hitlInfo: statusData.hitl_info,
+              onContinue: () => { setHitlModal(null); resolve('continue'); },
+              onSkip: () => { setHitlModal(null); resolve('skip'); }
+            });
+          }).then(action => {
+            if (action === 'skip') { skipped = true; done = true; }
+            else {
+              // Re-open loading Swal now that user continued
+              Swal.fire({ title: `Resuming: ${tc.id}`, text: 'AI is continuing the test...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+            }
+          });
+        } else if (statusData.status === 'done') {
+          const updatedTc = statusData.result;
+          if (updatedTc) {
+            setJob(prev => {
+              if (!prev?.test_report?.test_cases) return prev;
+              const newCases = prev.test_report.test_cases.map(existing => existing.id === tc.id ? updatedTc : existing);
+              return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } };
+            });
+            successCount++;
+          }
+          done = true;
+        } else if (statusData.status === 'error') {
+          Swal.fire({ title: `Error on ${tc.id}`, text: statusData.error || 'Unknown error', icon: 'error' });
+          done = true;
+        } else {
+          // still 'running' — update the Swal text with latest log
+          const lastLog = statusData.logs?.slice(-1)[0] || 'Running...';
+          Swal.update({ text: lastLog });
+        }
+      }
+
+      if (skipped) {
+        setJob(prev => {
           if (!prev?.test_report?.test_cases) return prev;
-          const newCases = prev.test_report.test_cases.map(existingTc => 
-            existingTc.id === tc.id ? updatedTc : existingTc
+          const newCases = prev.test_report.test_cases.map(existing =>
+            existing.id === tc.id ? { ...existing, status: 'Skipped', actual_result: 'Test was skipped by user during HITL pause.' } : existing
           );
-          return {
-            ...prev,
-            test_report: { ...prev.test_report, test_cases: newCases }
-          };
+          return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } };
         });
       }
-      
-      setSelectedTestCases({});
-      Swal.fire({
-        title: `Successfully executed ${selectedIds.length} test cases!`,
-        icon: 'success',
-        confirmButtonText: 'OK'
-      });
-    } catch (err) {
-      console.error(err);
-      Swal.fire({
-        title: "Execution Error",
-        text: err.message,
-        icon: 'error'
-      });
     }
+
+    Swal.close();
+    setSelectedTestCases({});
+    Swal.fire({ title: `Executed ${successCount} / ${testCasesToRun.length} test cases.`, icon: 'success', confirmButtonText: 'OK' });
   };
 
   const saveProject = async () => {
@@ -534,7 +562,14 @@ export function ProjectWorkspaceProvider({ children }) {
           'Content-Type': 'application/json',
           ...(token ? { 'Authorization': `Bearer ${token}` } : {})
         },
-        body: JSON.stringify({ job_id: job.id }),
+        body: JSON.stringify({ 
+          job_id: job.id,
+          test_report: job.test_report,
+          github_url: githubUrl,
+          project_url: projectUrl,
+          site_username: siteUsername,
+          site_password: sitePassword
+        }),
       })
       if (response.ok) {
         Swal.fire({
@@ -944,12 +979,20 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
     setDocPreviewHtml(null);
   }
   const value = {
-    brd, setBrd, fsd, setFsd, images, setImages, figmaUrl, setFigmaUrl, figmaToken, setFigmaToken, showFigmaToken, setShowFigmaToken, srs, setSrs, frd, setFrd, githubUrl, setGithubUrl, projectUrl, setProjectUrl, siteUsername, setSiteUsername, sitePassword, setSitePassword, deep, setDeep, aiMode, setAiMode, job, setJob, submitting, setSubmitting, userPrompt, setUserPrompt, selectedView, setSelectedView, generating, setGenerating, step, setStep, activeTab, setActiveTab, previewFile, setPreviewFile, docPreviewHtml, setDocPreviewHtml, showPersonalizeModal, setShowPersonalizeModal, showCreateProjectModal, setShowCreateProjectModal, createProjectName, setCreateProjectName, elapsedTime, setElapsedTime, pollRef, handleCellEdit, newCases, getStageProgress, formatTime, mins, secs, reportFilter, setReportFilter, searchQuery, setSearchQuery, expandedCases, setExpandedCases, checkedSteps, setCheckedSteps, caseStatuses, setCaseStatuses, viewFlowChart, setViewFlowChart, selectedTestCases, setSelectedTestCases, projects, setProjects, editingProject, setEditingProject, editProjectName, setEditProjectName, editProjectNotepad, setEditProjectNotepad, editingAITestCase, setEditingAITestCase, aiEditPrompt, setAiEditPrompt, isAiEditing, setIsAiEditing, aiSelectionModeTestCaseId, setAiSelectionModeTestCaseId, aiSelectedParts, setAiSelectedParts, sidebarWidth, setSidebarWidth, handleCellClick, getCellProps, isSelecting, isSelected, startResizing, handleMouseMove, handleMouseUp, fetchProjects, token, response, data, loadProject, pName, deleteProject, shareProject, blob, downloadLink, handleImportProject, file, reader, submitAiEdit, updatedTestCase, saveEditProject, executeSelectedTestCases, selectedIds, passed, saveProject, startAnalysis, formData, res, pollJob, generateTests, executedCases, ec, resetApp, handleCreateProject, stageIndex, showAnalyzeRail, featuresList, flowsList, inconsistenciesList, gapsList, featuresCount, flowsCount, totalIssues, cases, categories, filteredCases, matchesCategory, matchesSearch, totalCount, p0Count, p1Count, p2Count, p3Count, toggleExpand, toggleAll, next, toggleStep, key, copyMarkdown, md, exportDoc, casesBySection, sec, sections, subtitle, htmlContent, downloadDoc, currentUser, logout, navigate
+    brd, setBrd, fsd, setFsd, images, setImages, figmaUrl, setFigmaUrl, figmaToken, setFigmaToken, showFigmaToken, setShowFigmaToken, srs, setSrs, frd, setFrd, githubUrl, setGithubUrl, projectUrl, setProjectUrl, siteUsername, setSiteUsername, sitePassword, setSitePassword, deep, setDeep, aiMode, setAiMode, job, setJob, submitting, setSubmitting, userPrompt, setUserPrompt, selectedView, setSelectedView, generating, setGenerating, step, setStep, activeTab, setActiveTab, previewFile, setPreviewFile, docPreviewHtml, setDocPreviewHtml, showPersonalizeModal, setShowPersonalizeModal, showCreateProjectModal, setShowCreateProjectModal, createProjectName, setCreateProjectName, elapsedTime, setElapsedTime, pollRef, handleCellEdit, newCases, getStageProgress, formatTime, mins, secs, reportFilter, setReportFilter, searchQuery, setSearchQuery, expandedCases, setExpandedCases, checkedSteps, setCheckedSteps, caseStatuses, setCaseStatuses, viewFlowChart, setViewFlowChart, selectedTestCases, setSelectedTestCases, projects, setProjects, editingProject, setEditingProject, editProjectName, setEditProjectName, editProjectNotepad, setEditProjectNotepad, editingAITestCase, setEditingAITestCase, aiEditPrompt, setAiEditPrompt, isAiEditing, setIsAiEditing, aiSelectionModeTestCaseId, setAiSelectionModeTestCaseId, aiSelectedParts, setAiSelectedParts, sidebarWidth, setSidebarWidth, handleCellClick, getCellProps, isSelecting, isSelected, startResizing, handleMouseMove, handleMouseUp, fetchProjects, token, response, data, loadProject, pName, deleteProject, shareProject, blob, downloadLink, handleImportProject, file, reader, submitAiEdit, updatedTestCase, saveEditProject, executeSelectedTestCases, selectedIds, passed, saveProject, startAnalysis, formData, res, pollJob, generateTests, executedCases, ec, resetApp, handleCreateProject, stageIndex, showAnalyzeRail, featuresList, flowsList, inconsistenciesList, gapsList, featuresCount, flowsCount, totalIssues, cases, categories, filteredCases, matchesCategory, matchesSearch, totalCount, p0Count, p1Count, p2Count, p3Count, toggleExpand, toggleAll, next, toggleStep, key, copyMarkdown, md, exportDoc, casesBySection, sec, sections, subtitle, htmlContent, downloadDoc, currentUser, logout, navigate, hitlModal, setHitlModal
   };
 
   return (
     <ProjectWorkspaceContext.Provider value={value}>
       {children}
+      {hitlModal && (
+        <HumanInputModal
+          executionId={hitlModal.executionId}
+          hitlInfo={hitlModal.hitlInfo}
+          onContinue={hitlModal.onContinue}
+          onSkip={hitlModal.onSkip}
+        />
+      )}
     </ProjectWorkspaceContext.Provider>
   );
 }

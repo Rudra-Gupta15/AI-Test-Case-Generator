@@ -5,6 +5,7 @@ import { useAuth } from '../context/AuthContext.jsx'
 import FilePreviewer, { ImageThumbnail } from '../components/common/FilePreviewer.jsx'
 import Mermaid from '../components/common/Mermaid.jsx'
 import TreeFolder from '../components/legacy/TreeFolder.jsx'
+import HumanInputModal from '../components/common/HumanInputModal.jsx'
 import { ANALYZE_STAGES } from '../utils/constants.js'
 
 export default function LegacyWorkspace() {
@@ -16,7 +17,7 @@ export default function LegacyWorkspace() {
   const [fsd, setFsd] = useState(null)
   const [images, setImages] = useState([])
   const [figmaUrl, setFigmaUrl] = useState('')
-  const [figmaToken, setFigmaToken] = useState('')
+  const [figmaToken, setFigmaToken] = useState(() => localStorage.getItem('figmaToken') || '')
   const [showFigmaToken, setShowFigmaToken] = useState(false)
   const [srs, setSrs] = useState(null)
   const [frd, setFrd] = useState(null)
@@ -27,6 +28,10 @@ export default function LegacyWorkspace() {
   const [showSitePassword, setShowSitePassword] = useState(false)
   const [deep, setDeep] = useState(false)
   const [aiMode, setAiMode] = useState('strict')
+  // Other document (flexible) state
+  const [otherDocType, setOtherDocType] = useState('SRS')
+  const [otherDocCustomType, setOtherDocCustomType] = useState('')
+  const [otherDoc, setOtherDoc] = useState(null)
 
   // Job & UI states
   const [job, setJob] = useState(null)
@@ -49,7 +54,16 @@ export default function LegacyWorkspace() {
   const [executionPopup, setExecutionPopup] = useState(null)
   const [historyPage, setHistoryPage] = useState(1)
   const [elapsedTime, setElapsedTime] = useState(0)
+  const [hitlModal, setHitlModal] = useState(null)
   const pollRef = useRef(null)
+
+  useEffect(() => {
+    if (figmaToken) {
+      localStorage.setItem('figmaToken', figmaToken);
+    } else {
+      localStorage.removeItem('figmaToken');
+    }
+  }, [figmaToken]);
 
   const handleCellEdit = (tcId, field, value) => {
     setJob((prev) => {
@@ -275,6 +289,11 @@ export default function LegacyWorkspace() {
             if (filesData.fsd) setFsd(filesData.fsd); else setFsd(null);
             if (filesData.srs) setSrs(filesData.srs); else setSrs(null);
             if (filesData.frd) setFrd(filesData.frd); else setFrd(null);
+            if (filesData.other_doc) {
+              setOtherDoc(filesData.other_doc);
+              setOtherDocType(filesData.other_doc.type || 'Other');
+              setOtherDocCustomType(filesData.other_doc.type || 'Loaded Document');
+            } else setOtherDoc(null);
             if (filesData.images) setImages(filesData.images); else setImages([]);
           }
         } catch (e) {
@@ -587,6 +606,16 @@ export default function LegacyWorkspace() {
       return;
     }
 
+    const tc = job.test_report.test_cases.find(t => t.id === tcId);
+    if (!tc) {
+      Swal.fire({ title: "Error", text: "Test case not found", icon: 'error' });
+      return;
+    }
+
+    const executionId = `exec_${tc.id}_${Date.now()}`;
+    const token = localStorage.getItem('token');
+    const headers = { 'Content-Type': 'application/json', ...(token ? { 'Authorization': `Bearer ${token}` } : {}) };
+
     Swal.fire({
       title: 'Executing Live Test...',
       text: `Starting Playwright AI engine for ${tcId}...`,
@@ -595,54 +624,86 @@ export default function LegacyWorkspace() {
     });
 
     try {
-      const tc = job.test_report.test_cases.find(t => t.id === tcId);
-      if (!tc) throw new Error("Test case not found");
-
-      const token = localStorage.getItem('token');
-      const response = await fetch('/api/execute_test_case', {
+      const startRes = await fetch('/api/execute_test_case', {
         method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          ...(token ? { 'Authorization': `Bearer ${token}` } : {})
-        },
+        headers,
         body: JSON.stringify({
           test_case: tc,
-          target_url: projectUrl
+          target_url: projectUrl,
+          execution_id: executionId,
+          site_username: siteUsername,
+          site_password: sitePassword
         })
       });
 
-      if (!response.ok) {
-        throw new Error(`Execution failed with status ${response.status}`);
+      if (!startRes.ok) {
+        throw new Error(`Execution failed with status ${startRes.status}`);
       }
-      
-      const data = await response.json();
-      const updatedTc = data.test_case;
-      
-      setJob((prev) => {
-        if (!prev?.test_report?.test_cases) return prev;
-        const newCases = prev.test_report.test_cases.map(existingTc => 
-          existingTc.id === tcId ? updatedTc : existingTc
-        );
-        return {
-          ...prev,
-          test_report: { ...prev.test_report, test_cases: newCases }
-        };
-      });
-
-      Swal.fire({
-        title: "Success",
-        text: "Successfully executed 1 test case!",
-        icon: "success",
-        confirmButtonText: "OK",
-        confirmButtonColor: "#10b981"
-      });
     } catch (err) {
       console.error(err);
-      Swal.fire({
-        title: "Execution Error",
-        text: err.message,
-        icon: 'error'
+      Swal.fire({ title: "Execution Error", text: err.message, icon: 'error' });
+      return;
+    }
+
+    let done = false;
+    let skipped = false;
+    while (!done) {
+      await new Promise(r => setTimeout(r, 2000));
+      let statusData;
+      try {
+        const statusRes = await fetch(`/api/execution_status/${executionId}`, { headers });
+        if (!statusRes.ok) { done = true; break; }
+        statusData = await statusRes.json();
+      } catch {
+        done = true; break;
+      }
+
+      if (statusData.status === 'waiting_for_human') {
+        Swal.close();
+        await new Promise(resolve => {
+          setHitlModal({
+            executionId,
+            hitlInfo: statusData.hitl_info,
+            onContinue: () => { setHitlModal(null); resolve('continue'); },
+            onSkip: () => { setHitlModal(null); resolve('skip'); }
+          });
+        }).then(action => {
+          if (action === 'skip') { skipped = true; done = true; }
+          else {
+            Swal.fire({ title: `Resuming: ${tc.id}`, text: 'AI is continuing the test...', allowOutsideClick: false, didOpen: () => Swal.showLoading() });
+          }
+        });
+      } else if (statusData.status === 'done') {
+        const updatedTc = statusData.result;
+        if (updatedTc) {
+          setJob((prev) => {
+            if (!prev?.test_report?.test_cases) return prev;
+            const newCases = prev.test_report.test_cases.map(existingTc => 
+              existingTc.id === tcId ? updatedTc : existingTc
+            );
+            return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } };
+          });
+        }
+        Swal.fire({ title: "Success", text: "Successfully executed 1 test case!", icon: "success", confirmButtonText: "OK", confirmButtonColor: "#10b981" });
+        done = true;
+      } else if (statusData.status === 'error') {
+        Swal.fire({ title: "Execution Error", text: statusData.error || 'Unknown error', icon: 'error' });
+        done = true;
+      } else {
+        const lastLog = statusData.logs?.slice(-1)[0] || 'Running...';
+        Swal.update({ text: lastLog });
+      }
+    }
+
+    if (skipped) {
+      setJob(prev => {
+        if (!prev?.test_report?.test_cases) return prev;
+        const newCases = prev.test_report.test_cases.map(existing =>
+          existing.id === tc.id ? { ...existing, status: 'Skipped', actual_result: 'Test was skipped by user during HITL pause.' } : existing
+        );
+        return { ...prev, test_report: { ...prev.test_report, test_cases: newCases } };
       });
+      Swal.close();
     }
   };
 
@@ -727,8 +788,10 @@ export default function LegacyWorkspace() {
     const formData = new FormData()
     if (brd instanceof File) formData.append('brd', brd)
     if (fsd instanceof File) formData.append('fsd', fsd)
-    if (srs instanceof File) formData.append('srs', srs)
-    if (frd instanceof File) formData.append('frd', frd)
+    if (otherDoc instanceof File) {
+      formData.append('other_doc', otherDoc)
+      formData.append('other_doc_type', otherDocType === 'Other' ? otherDocCustomType : otherDocType)
+    }
     if (figmaUrl) formData.append('figma_url', figmaUrl)
     if (figmaToken) formData.append('figma_token', figmaToken)
     if (githubUrl) formData.append('github_url', githubUrl)
@@ -1578,58 +1641,67 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                           </div>
                         </div>
 
-                        {/* SRS */}
-                        <div className={`sleek-list-item ${srs ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: srs ? '1px solid #10b981' : '1px solid #e2e8f0', background: srs ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: srs ? 'column' : 'row', alignItems: srs ? 'stretch' : 'center', justifyContent: 'space-between', gap: srs ? '12px' : '0' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: srs ? '0' : '16px' }}>
-                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>SRS (Software Requirements)</span>
+                        {/* OTHER DOCUMENTS — Flexible Dropdown Upload */}
+                        <div style={{ border: '1px dashed #cbd5e1', borderRadius: '12px', padding: '16px 20px', background: '#f8fafc' }}>
+                          <div style={{ display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '12px' }}>
+                            <span style={{ color: '#f59e0b', fontSize: '18px' }}>📁</span>
+                            <span style={{ fontWeight: '700', fontSize: '13.5px', color: '#1e293b' }}>Other Document</span>
+                            <span style={{ fontSize: '11px', color: '#94a3b8', fontWeight: '500', marginLeft: '2px' }}>(SRS, FRD, BRE, etc.)</span>
                           </div>
-                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: srs ? 'none' : 1, width: srs ? '100%' : 'auto', minWidth: 0, justifyContent: srs ? 'stretch' : 'flex-end' }}>
-                            {srs ? (
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
-                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
-                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={srs.name}>{srs.name}</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(srs)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(srs.name, setSrs)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
-                                </div>
-                              </div>
-                            ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
-                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setSrs(e.target.files[0])} className="hidden-file-input" />
-                              </label>
-                            )}
-                          </div>
-                        </div>
 
-                        {/* FRD */}
-                        <div className={`sleek-list-item ${frd ? 'has-file' : ''}`} style={{ padding: '16px 20px', border: frd ? '1px solid #10b981' : '1px solid #e2e8f0', background: frd ? '#f0fdf4' : '#fff', borderRadius: '12px', marginBottom: '12px', display: 'flex', flexDirection: frd ? 'column' : 'row', alignItems: frd ? 'stretch' : 'center', justifyContent: 'space-between', gap: frd ? '12px' : '0' }}>
-                          <div className="sleek-item-left" style={{ display: 'flex', alignItems: 'center', minWidth: 'max-content', marginRight: frd ? '0' : '16px' }}>
-                            <span style={{ color: '#f59e0b', fontSize: '18px', marginRight: '8px', display: 'flex', alignItems: 'center' }}>📁</span>
-                            <span className="sleek-item-label" style={{ fontWeight: '600', whiteSpace: 'nowrap' }}>FRD (Functional Requirements)</span>
+                          {/* Row 1: Dropdown */}
+                          <div style={{ marginBottom: '10px' }}>
+                            <label style={{ fontSize: '12px', fontWeight: '600', color: '#64748b', display: 'block', marginBottom: '5px' }}>Select Document Type</label>
+                            <select
+                              value={otherDocType}
+                              onChange={e => { setOtherDocType(e.target.value); setOtherDoc(null); }}
+                              style={{ width: '100%', height: '38px', padding: '0 10px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13.5px', background: '#fff', color: '#1e293b', cursor: 'pointer', outline: 'none', appearance: 'auto' }}
+                            >
+                              <option value="SRS">SRS — Software Requirements Specification</option>
+                              <option value="FRD">FRD — Functional Requirements Document</option>
+                              <option value="BRE">BRE — Business Rules Engine Document</option>
+                              <option value="TRD">TRD — Technical Requirements Document</option>
+                              <option value="PRD">PRD — Product Requirements Document</option>
+                              <option value="UAT">UAT — User Acceptance Testing Plan</option>
+                              <option value="Other">Other (specify below)</option>
+                            </select>
                           </div>
-                          <div className="sleek-item-right" style={{ display: 'flex', alignItems: 'center', gap: '8px', flex: frd ? 'none' : 1, width: frd ? '100%' : 'auto', minWidth: 0, justifyContent: frd ? 'stretch' : 'flex-end' }}>
-                            {frd ? (
-                              <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', width: '100%', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
-                                <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '16px' }}>
-                                  <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
-                                  <span className="sleek-filename" style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '14px' }} title={frd.name}>{frd.name}</span>
-                                </div>
-                                <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
-                                  <button type="button" className="sleek-icon-btn" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(frd)} title="Preview"><i className="fa-solid fa-eye"></i></button>
-                                  <button type="button" className="sleek-icon-btn danger" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => handleRemoveFile(frd.name, setFrd)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+
+                          {/* Custom type input — only shown when 'Other' is selected */}
+                          {otherDocType === 'Other' && (
+                            <div style={{ marginBottom: '10px' }}>
+                              <input
+                                type="text"
+                                placeholder="e.g. API Spec, Test Plan, Wireframe Notes..."
+                                value={otherDocCustomType}
+                                onChange={e => setOtherDocCustomType(e.target.value)}
+                                style={{ width: '100%', height: '38px', padding: '0 12px', borderRadius: '8px', border: '1.5px solid #e2e8f0', fontSize: '13.5px', background: '#fff', color: '#1e293b', outline: 'none', boxSizing: 'border-box' }}
+                              />
+                            </div>
+                          )}
+
+                          {/* Row 2: Upload or Uploaded file */}
+                          {otherDoc ? (
+                            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', background: '#fff', border: '1px solid #a7f3d0', padding: '10px 14px', borderRadius: '10px', boxShadow: '0 1px 2px rgba(0,0,0,0.05)' }}>
+                              <div style={{ display: 'flex', alignItems: 'center', overflow: 'hidden', flex: 1, marginRight: '12px' }}>
+                                <i className="fa-solid fa-file-lines" style={{ color: '#10b981', marginRight: '10px', fontSize: '16px' }}></i>
+                                <div style={{ overflow: 'hidden' }}>
+                                  <div style={{ fontSize: '11px', fontWeight: '700', color: '#3b82f6', marginBottom: '1px' }}>{otherDocType === 'Other' ? (otherDocCustomType || 'Custom Doc') : otherDocType}</div>
+                                  <span style={{ whiteSpace: 'nowrap', overflow: 'hidden', textOverflow: 'ellipsis', color: '#047857', fontWeight: '500', fontSize: '13px', display: 'block' }} title={otherDoc.name}>{otherDoc.name}</span>
                                 </div>
                               </div>
-                            ) : (
-                              <label className="sleek-upload-btn" style={{ borderColor: '#3b82f6', color: '#ffffff', background: '#3b82f6', display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '6px', height: '40px', padding: '0 16px', borderRadius: '8px', cursor: 'pointer', border: '1px solid #3b82f6', whiteSpace: 'nowrap', flexShrink: 0 }}>
-                                <span style={{ fontSize: '16px', marginBottom: '2px' }}>↑</span> <span style={{ fontWeight: '600' }}>Upload</span>
-                                <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={(e) => setFrd(e.target.files[0])} className="hidden-file-input" />
-                              </label>
-                            )}
-                          </div>
+                              <div style={{ display: 'flex', gap: '8px', flexShrink: 0 }}>
+                                <button type="button" style={{ border: '1px solid #000', background: '#ecfdf5', color: '#059669', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setPreviewFile(otherDoc)} title="Preview"><i className="fa-solid fa-eye"></i></button>
+                                <button type="button" style={{ border: '1px solid #000', background: '#fef2f2', color: '#dc2626', borderRadius: '8px', width: '36px', height: '36px', display: 'flex', alignItems: 'center', justifyContent: 'center', cursor: 'pointer' }} onClick={() => setOtherDoc(null)} title="Remove"><i className="fa-solid fa-trash-can"></i></button>
+                              </div>
+                            </div>
+                          ) : (
+                            <label style={{ display: 'flex', alignItems: 'center', justifyContent: 'center', gap: '8px', width: '100%', height: '42px', borderRadius: '8px', background: '#3b82f6', color: '#fff', fontWeight: '600', fontSize: '13.5px', cursor: 'pointer', border: '1px solid #3b82f6', boxSizing: 'border-box' }}>
+                              <span style={{ fontSize: '16px' }}>↑</span>
+                              Upload {otherDocType === 'Other' ? (otherDocCustomType || 'File') : otherDocType} File
+                              <input type="file" accept=".pdf,.docx,.doc,.txt,.md" onChange={e => setOtherDoc(e.target.files[0])} style={{ display: 'none' }} />
+                            </label>
+                          )}
                         </div>
 
                       </div>
@@ -1674,7 +1746,44 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                           </div>
                         </div>
                         <div className="sleek-input-group">
-                          <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', marginBottom: '10px', display: 'block' }}>Figma API Token</label>
+                          <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '10px' }}>
+                            <label style={{ fontSize: '13.5px', fontWeight: '700', color: '#1e293b', display: 'block', margin: 0 }}>Figma API Token</label>
+                            {figmaToken && (
+                              <button 
+                                type="button"
+                                onClick={() => {
+                                  localStorage.setItem('figmaToken', figmaToken);
+                                  Swal.fire({
+                                    title: 'Saved!',
+                                    text: 'Your Figma API token has been saved securely for future projects.',
+                                    icon: 'success',
+                                    toast: true,
+                                    position: 'top-end',
+                                    showConfirmButton: false,
+                                    timer: 3000,
+                                    timerProgressBar: true,
+                                    background: '#f0fdf4',
+                                    color: '#166534',
+                                    iconColor: '#10b981'
+                                  });
+                                }}
+                                style={{
+                                  background: '#10b981',
+                                  color: 'white',
+                                  border: 'none',
+                                  borderRadius: '6px',
+                                  padding: '4px 12px',
+                                  fontSize: '12px',
+                                  fontWeight: '600',
+                                  cursor: 'pointer',
+                                  transition: 'background 0.2s',
+                                  boxShadow: '0 2px 4px rgba(16, 185, 129, 0.2)'
+                                }}
+                              >
+                                Save Token
+                              </button>
+                            )}
+                          </div>
                           <div className="sleek-input-wrapper" style={{ position: 'relative', display: 'flex', alignItems: 'center', border: figmaToken ? '1px solid #10b981' : undefined, background: figmaToken ? '#f0fdf4' : undefined }}>
                             <span style={{ position: 'absolute', left: '16px', color: '#eab308', fontSize: '16px', display: 'flex', alignItems: 'center', pointerEvents: 'none' }}><i className="fa-solid fa-key"></i></span>
                             <input type={showFigmaToken ? "text" : "password"} autoComplete="new-password" value={figmaToken} onChange={(e) => setFigmaToken(e.target.value)} style={{ width: '100%', height: '52px', padding: '0 48px 0 44px', borderRadius: '8px', border: 'none', background: 'transparent', outline: 'none', boxSizing: 'border-box', fontSize: '14px' }} placeholder="Enter your Figma API token" />
@@ -2258,6 +2367,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                   />
                                 </th>
                                 <th style={{ minWidth: '100px' }}>Actions</th>
+                                <th style={{ minWidth: '120px' }}>Status</th>
                                 <th style={{ minWidth: '100px' }}>Test Case ID</th>
                                 <th style={{ minWidth: '120px' }}>Category</th>
                                 <th style={{ minWidth: '180px' }}>Test Scenario</th>
@@ -2268,7 +2378,6 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                 <th style={{ minWidth: '250px' }}>Expected Result</th>
                                 <th style={{ minWidth: '200px' }}>Actual Result</th>
                                 <th style={{ minWidth: '150px' }}>Postcondition</th>
-                                <th style={{ minWidth: '120px' }}>Status</th>
                                 <th style={{ minWidth: '100px' }}>Severity</th>
                                 <th style={{ minWidth: '100px' }}>Priority</th>
                                 <th style={{ minWidth: '120px' }}>Executed By</th>
@@ -2330,6 +2439,16 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                       </div>
                                     )}
                                   </td>
+                                  <td {...getCellProps(tc, 'status', {
+                                    fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
+                                    color:
+                                      tc.status === 'Pass' ? '#16a34a' :
+                                        tc.status === 'Fail' ? '#dc2626' :
+                                          tc.status === 'Blocked' ? '#ca8a04' :
+                                            tc.status === 'Skipped' ? '#6b7280' : 'inherit'
+                                  })} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)}>
+                                    {tc.status || 'N/A'}
+                                  </td>
                                   <td {...getCellProps(tc, 'id', { whiteSpace: 'nowrap', fontWeight: 600 })} onBlur={(e) => handleCellEdit(tc.id, 'id', e.target.innerText)}>{tc.id}</td>
                                   <td {...getCellProps(tc, 'category')} onBlur={(e) => handleCellEdit(tc.id, 'category', e.target.innerText)}>{typeof tc.category === 'object' ? JSON.stringify(tc.category) : tc.category}</td>
                                   <td {...getCellProps(tc, 'scenario')} onBlur={(e) => handleCellEdit(tc.id, 'scenario', e.target.innerText)}>{typeof tc.scenario === 'object' ? JSON.stringify(tc.scenario) : tc.scenario}</td>
@@ -2345,16 +2464,6 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
                                   <td {...getCellProps(tc, 'expected_result')} onBlur={(e) => handleCellEdit(tc.id, 'expected_result', e.target.innerText)}>{(typeof tc.expected_result === 'object' ? JSON.stringify(tc.expected_result) : tc.expected_result) || 'N/A'}</td>
                                   <td {...getCellProps(tc, 'actual_result')} onBlur={(e) => handleCellEdit(tc.id, 'actual_result', e.target.innerText)}>{(typeof tc.actual_result === 'object' ? JSON.stringify(tc.actual_result) : tc.actual_result) || 'N/A'}</td>
                                   <td {...getCellProps(tc, 'postcondition')} onBlur={(e) => handleCellEdit(tc.id, 'postcondition', e.target.innerText)}>{(typeof tc.postcondition === 'object' ? JSON.stringify(tc.postcondition) : tc.postcondition) || 'N/A'}</td>
-                                  <td {...getCellProps(tc, 'status', {
-                                    fontWeight: tc.status && tc.status !== 'N/A' ? 700 : 400,
-                                    color:
-                                      tc.status === 'Pass' ? '#16a34a' :
-                                        tc.status === 'Fail' ? '#dc2626' :
-                                          tc.status === 'Blocked' ? '#ca8a04' :
-                                            tc.status === 'Skipped' ? '#6b7280' : 'inherit'
-                                  })} onBlur={(e) => handleCellEdit(tc.id, 'status', e.target.innerText)}>
-                                    {tc.status || 'N/A'}
-                                  </td>
                                   <td {...getCellProps(tc, 'severity')} onBlur={(e) => handleCellEdit(tc.id, 'severity', e.target.innerText)} className={`severity-${tc.severity?.toLowerCase()}`}>{tc.severity}</td>
                                   <td {...getCellProps(tc, 'priority')} onBlur={(e) => handleCellEdit(tc.id, 'priority', e.target.innerText)}>{tc.priority}</td>
                                   <td {...getCellProps(tc, 'executed_by')} onBlur={(e) => handleCellEdit(tc.id, 'executed_by', e.target.innerText)}>{tc.executed_by || 'N/A'}</td>
@@ -2700,6 +2809,7 @@ ${Array.isArray(tc.steps) ? tc.steps.map((s) => `${s}`).join('\n') : (tc.steps |
           </div>
         );
       })()}
+      <HumanInputModal {...hitlModal} />
     </div>
   )
 }

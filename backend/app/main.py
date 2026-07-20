@@ -185,8 +185,8 @@ async def analyze(
     background_tasks: BackgroundTasks,
     brd: UploadFile | None = File(None),
     fsd: UploadFile | None = File(None),
-    srs: UploadFile | None = File(None),
-    frd: UploadFile | None = File(None),
+    other_doc: UploadFile | None = File(None),
+    other_doc_type: str | None = Form(None),
     images: list[UploadFile] = File(default=[]),
     figma_url: str | None = Form(None),
     figma_token: str | None = Form(None),
@@ -219,17 +219,14 @@ async def analyze(
         with open(fsd_path, "wb") as f:
             shutil.copyfileobj(fsd.file, f)
 
-    srs_path = None
-    if srs is not None:
-        srs_path = os.path.join(job_dir, f"srs_{srs.filename}")
-        with open(srs_path, "wb") as f:
-            shutil.copyfileobj(srs.file, f)
-
-    frd_path = None
-    if frd is not None:
-        frd_path = os.path.join(job_dir, f"frd_{frd.filename}")
-        with open(frd_path, "wb") as f:
-            shutil.copyfileobj(frd.file, f)
+    other_doc_path = None
+    if other_doc is not None:
+        import base64
+        dtype = other_doc_type or "Other"
+        enc_type = base64.b64encode(dtype.encode('utf-8')).decode('utf-8')
+        other_doc_path = os.path.join(job_dir, f"other_type_{enc_type}_{other_doc.filename}")
+        with open(other_doc_path, "wb") as f:
+            shutil.copyfileobj(other_doc.file, f)
 
     image_paths = []
     for img in images:
@@ -242,7 +239,7 @@ async def analyze(
 
     background_tasks.add_task(
         run_analysis,
-        job_id, brd_path, fsd_path, srs_path, frd_path, image_paths,
+        job_id, brd_path, fsd_path, other_doc_path, other_doc_type, image_paths,
         figma_url, token, project_url, deep,
         node_id=node_id,
         ai_mode=ai_mode,
@@ -741,6 +738,20 @@ async def get_project_files(
                 elif f.startswith("fsd_"): files["fsd"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
                 elif f.startswith("srs_"): files["srs"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
                 elif f.startswith("frd_"): files["frd"] = {"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("other_type_"):
+                    import base64
+                    parts = f.split("_", 3)
+                    doc_type = "Other"
+                    real_name = f
+                    if len(parts) >= 4:
+                        try:
+                            doc_type = base64.b64decode(parts[2]).decode('utf-8')
+                            real_name = parts[3]
+                        except:
+                            pass
+                    files["other_doc"] = {"name": real_name, "type": doc_type, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
+                elif f.startswith("other_"): 
+                    files["other_doc"] = {"name": f.replace("other_", "", 1), "type": "Other", "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"}
                 elif f.startswith("img_"): 
                     if "images" not in files: files["images"] = []
                     files["images"].append({"name": f, "isExisting": True, "url": f"/api/projects/{project_id}/files/{f}"})
@@ -1068,23 +1079,126 @@ async def suggest_structure(
         "suggestions": suggestions,
     }
 
-from app.live_executor import execute_test_case_live
+from app.live_executor import (
+    execute_test_case_live,
+    create_execution_slot,
+    get_execution_slot,
+    remove_execution_slot,
+    submit_human_input,
+)
+import asyncio as _asyncio
+
+# ═══════════════════════════════════════════════════════
+#  LIVE TEST EXECUTION (Human-in-the-Loop)
+# ═══════════════════════════════════════════════════════
 
 class ExecuteTestCaseRequest(BaseModel):
     test_case: dict
     target_url: str
+    execution_id: str
+    site_username: str | None = None
+    site_password: str | None = None
+
+class ResumeExecutionRequest(BaseModel):
+    input_data: dict  # e.g. {"otp": "123456"} or {} (for captcha/profile where user acts in browser)
+
 
 @app.post("/api/execute_test_case")
 async def api_execute_test_case(
     req: ExecuteTestCaseRequest,
+    background_tasks: BackgroundTasks,
     current_user: User = Depends(get_current_user),
 ):
-    try:
-        updated_test_case, logs = await execute_test_case_live(req.test_case, req.target_url)
-        return {
-            "success": True,
-            "test_case": updated_test_case,
-            "logs": logs
-        }
-    except Exception as e:
-        raise HTTPException(status_code=500, detail=str(e))
+    """
+    Start a live test execution. The test runs asynchronously in a background task.
+    The frontend should poll /api/execution_status/{execution_id} to track progress.
+    When status is 'waiting_for_human', show the HITL modal and POST to /api/execution_resume/{execution_id}.
+    """
+    # Register the execution slot BEFORE launching the background task
+    create_execution_slot(req.execution_id)
+
+    async def _run():
+        try:
+            updated_test_case, logs = await execute_test_case_live(
+                req.test_case,
+                req.target_url,
+                req.execution_id,
+                req.site_username,
+                req.site_password
+            )
+            slot = get_execution_slot(req.execution_id)
+            if slot:
+                slot["result"] = updated_test_case
+                slot["logs"] = logs
+                slot["status"] = "done"
+        except Exception as e:
+            slot = get_execution_slot(req.execution_id)
+            if slot:
+                slot["status"] = "error"
+                slot["error"] = str(e)
+
+    background_tasks.add_task(_run)
+
+    return {"success": True, "execution_id": req.execution_id, "status": "running"}
+
+
+@app.get("/api/execution_status/{execution_id}")
+async def api_execution_status(
+    execution_id: str,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Poll this endpoint to get the current state of a live test execution.
+
+    Returns:
+        status: "running" | "waiting_for_human" | "done" | "error"
+        hitl_info: (only when waiting_for_human) describes what the user needs to provide
+        result: (only when done) the final test case with pass/fail status
+        logs: running log of execution steps
+    """
+    slot = get_execution_slot(execution_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail=f"Execution '{execution_id}' not found.")
+
+    response = {
+        "execution_id": execution_id,
+        "status": slot.get("status", "running"),
+        "logs": slot.get("logs", []),
+    }
+
+    if slot.get("status") == "waiting_for_human":
+        response["hitl_info"] = slot.get("hitl_info")
+
+    if slot.get("status") == "done":
+        response["result"] = slot.get("result")
+        # Clean up slot after client reads the result
+        remove_execution_slot(execution_id)
+
+    if slot.get("status") == "error":
+        response["error"] = slot.get("error")
+        remove_execution_slot(execution_id)
+
+    return response
+
+
+@app.post("/api/execution_resume/{execution_id}")
+async def api_execution_resume(
+    execution_id: str,
+    req: ResumeExecutionRequest,
+    current_user: User = Depends(get_current_user),
+):
+    """
+    Resume a paused execution after the human has provided the required input.
+    The input_data dict maps field keys to values (e.g. {"otp": "123456"}).
+    For steps where the user acts directly in the browser (e.g. CAPTCHA, profile selection),
+    pass an empty dict: {}.
+    """
+    slot = get_execution_slot(execution_id)
+    if not slot:
+        raise HTTPException(status_code=404, detail=f"Execution '{execution_id}' not found.")
+    if slot.get("status") != "waiting_for_human":
+        raise HTTPException(status_code=400, detail="Execution is not currently waiting for human input.")
+
+    submit_human_input(execution_id, req.input_data)
+    return {"success": True, "message": "Execution resumed."}
+

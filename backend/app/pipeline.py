@@ -128,15 +128,15 @@ async def run_analysis(
     job_id: str,
     brd_path: Optional[str],
     fsd_path: Optional[str],
-    srs_path: Optional[str],
-    frd_path: Optional[str],
+    other_doc_path: Optional[str],
+    other_doc_type: Optional[str],
     image_paths: list[str],
     figma_url: Optional[str],
     figma_token: Optional[str],
     project_url: Optional[str],
-    deep: bool,
+    deep: bool = False,
     node_id: Optional[str] = None,
-    ai_mode: Optional[str] = None,
+    ai_mode: str = "strict",
 ):
     try:
         # ── Stage 1: Parse documents ──
@@ -151,8 +151,7 @@ async def run_analysis(
 
         brd_text = await parse_doc_async(brd_path)
         fsd_text = await parse_doc_async(fsd_path)
-        srs_text = await parse_doc_async(srs_path)
-        frd_text = await parse_doc_async(frd_path)
+        other_doc_text = await parse_doc_async(other_doc_path)
 
         update_job(job_id, stage="fetching_figma")
         figma_screens = []
@@ -174,13 +173,13 @@ async def run_analysis(
         # Use passed ai_mode; fall back to JOBS dict for backward compatibility
         ai_mode = ai_mode or JOBS.get(job_id, {}).get("ai_mode", "strict")
         understanding = await ollama_client.understand(
-            brd_text, fsd_text, srs_text, frd_text, figma_screens, image_paths, project_text, deep=deep, ai_mode=ai_mode
+            brd_text, fsd_text, other_doc_text, other_doc_type, figma_screens, image_paths, project_text, deep=deep, ai_mode=ai_mode
         )
         understanding["raw_texts"] = {
             "brd_text": brd_text,
             "fsd_text": fsd_text,
-            "srs_text": srs_text,
-            "frd_text": frd_text,
+            "other_doc_text": other_doc_text,
+            "other_doc_type": other_doc_type,
         }
 
         update_job(job_id, understanding=understanding)
@@ -213,8 +212,10 @@ async def run_analysis(
             "purpose": understanding.get("purpose", "Unknown"),
             "brd_text": understanding.get("raw_texts", {}).get("brd_text", ""),
             "fsd_text": understanding.get("raw_texts", {}).get("fsd_text", ""),
-            "srs_text": understanding.get("raw_texts", {}).get("srs_text", ""),
-            "frd_text": understanding.get("raw_texts", {}).get("frd_text", ""),
+            "srs_text": understanding.get("raw_texts", {}).get("other_doc_text", "") if understanding.get("raw_texts", {}).get("other_doc_type") == "SRS" else "",
+            "frd_text": understanding.get("raw_texts", {}).get("other_doc_text", "") if understanding.get("raw_texts", {}).get("other_doc_type") == "FRD" else "",
+            "other_doc_text": understanding.get("raw_texts", {}).get("other_doc_text", ""),
+            "other_doc_type": understanding.get("raw_texts", {}).get("other_doc_type", ""),
         }
 
         all_test_cases = []
